@@ -1,0 +1,13 @@
+{
+  "name": "AXISRelease",
+  "version": "0.4.0",
+  "released_at": "2026-08-19",
+  "artifact_kind": "standalone source distribution",
+  "entrypoints": ["bin/axis-bootstrap", "bin/axis-release"],
+  "python": ">=3.10",
+  "runtime_dependencies": [
+    "Python standard library",
+    "a configured Coding Agent executable",
+    "the target application"
+  ]
+}
