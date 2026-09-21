@@ -175,7 +175,7 @@ def verify_items(items, app_dir, timeout, batch_dir, attempt_number):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--run-id", default="commands-20260729")
+    parser.add_argument("--run-id", required=True)
     parser.add_argument("--app", required=True)
     parser.add_argument("--config")
     parser.add_argument("--batch-size", type=int)
@@ -184,17 +184,17 @@ def main():
     parser.add_argument("--model")
     parser.add_argument(
         "--timeout", type=int,
-        help="一次实现尝试的最长秒数；默认读取 axis-config.json")
+        help="Maximum seconds per implementation attempt; defaults from axis-config.json")
     parser.add_argument(
         "--verify-timeout", type=int,
-        help="单个构建或验证命令的最长秒数；超时只计当前命令失败")
+        help="Maximum seconds per build or verification; timeout fails only the current command")
     parser.add_argument(
         "--max-retries", type=int,
-        help="首次失败后的重试次数；默认1，即每个命令最多尝试2次")
+        help="Retries after the first failure; default1; maximum attempts per command:2attempts")
     parser.add_argument("--max-batches", type=int)
     parser.add_argument(
         "--skip-documentation", action="store_true",
-        help="跳过完整命令文档阶段；仅供局部开发测试")
+        help="Skip command documentation for partial development runs")
     args = parser.parse_args()
 
     global_config = system_config.load(args.config)
@@ -255,7 +255,7 @@ def main():
         if old_failures:
             state.setdefault("failure_history", []).append({
                 "contract_version": old_contract,
-                "reason": "对象族实现协议已更新，旧协议下的失败项获得一次新的有限重试",
+                "reason": "Object-family contract updated; previous failures receive a new bounded retry",
                 "failed_commands": old_failures,
             })
             for command, failure in old_failures.items():
@@ -342,7 +342,7 @@ def main():
                 **extra,
             }, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
-        write_batch_status("running", "准备隔离工作目录",
+        write_batch_status("running", "Preparing isolated workspace",
                            command_count=len(batch), attempt=0)
         events = batch_dir / "codex_events.jsonl"
         last = batch_dir / "last_message.txt"
@@ -355,7 +355,7 @@ def main():
             round_number += 1
             round_items = list(active.values())
             write_batch_status(
-                "running", "隔离实现 Agent 正在工作",
+                "running", "Isolated implementation Agent is running",
                 command_count=len(batch), active=len(round_items),
                 attempt=round_number)
             payload = {
@@ -434,7 +434,7 @@ def main():
             with acceptance_lock:
                 merge_failure = ""
                 write_batch_status(
-                    "running", "合并 Agent 正在合并实现",
+                    "running", "Merge Agent is merging implementations",
                     command_count=len(batch), active=len(round_items),
                     attempt=round_number)
                 if candidate_root is not None:
@@ -447,7 +447,7 @@ def main():
                     finally:
                         agent_slots.release()
                 write_batch_status(
-                    "running", "Python 正在逐命令构建和验证",
+                    "running", "Python is building and verifying each command",
                     command_count=len(batch), active=len(round_items),
                     attempt=round_number)
                 round_failures = verify_items(
@@ -503,7 +503,7 @@ def main():
                 write_state()
             if failure_reasons:
                 write_batch_status(
-                    "running", "失败命令准备有限重试",
+                    "running", "Preparing bounded retries for failed commands",
                     command_count=len(batch), active=len(failure_reasons),
                     accepted=len(passed), attempt=round_number)
                 print(
@@ -521,7 +521,7 @@ def main():
                 result.stderr, encoding="utf-8")
         write_batch_status(
             "completed_with_unfinished" if batch_unfinished else "accepted",
-            "本批处理完成", command_count=len(batch),
+            "Batch completed", command_count=len(batch),
             accepted=len(batch_passed), failed=len(batch_unfinished),
             active=0, attempt=round_number)
         print(
@@ -556,11 +556,11 @@ def main():
         }, ensure_ascii=False))
         return
 
-    skip_phase = ("配置已禁用完整命令文档"
+    skip_phase = ("Command documentation disabled in configuration"
                   if not documentation_enabled else
-                  "命令行已跳过完整命令文档"
+                  "Command documentation skipped by command-line option"
                   if args.skip_documentation else
-                  "局部运行未生成完整命令文档")
+                  "Partial run did not generate command documentation")
     documentation = {"status": "skipped", "phase": skip_phase}
     if (documentation_enabled and args.max_batches is None
             and not args.skip_documentation):

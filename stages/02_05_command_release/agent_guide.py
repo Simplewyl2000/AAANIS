@@ -221,7 +221,7 @@ def generate(app: str, app_dir_name: str, run_dir: Path, executable: str,
             encoding="utf-8")
         return record
 
-    status("running", "文档 Agent 正在整理完整命令说明")
+    status("running", "Documentation Agent is preparing the command guide")
     prompt = (PROMPT.replace("{{INPUT_PATH}}", str(input_path))
               .replace("{{OUTPUT_PATH}}", str(output_path)))
     last = doc_dir / "last_message.txt"
@@ -232,21 +232,21 @@ def generate(app: str, app_dir_name: str, run_dir: Path, executable: str,
         (doc_dir / "events.jsonl").write_text(result.stdout, encoding="utf-8")
         (doc_dir / "stderr.log").write_text(result.stderr, encoding="utf-8")
         if result.returncode:
-            return status("failed", "文档 Agent 执行失败",
+            return status("failed", "Documentation Agent execution failed",
                           error=f"agent exit={result.returncode}: {result.stderr[-2000:]}")
     except subprocess.TimeoutExpired as exc:
-        return status("failed", "文档 Agent 超时",
+        return status("failed", "Documentation Agent timed out",
                       error=f"timed out after {exc.timeout} seconds")
     except Exception as exc:
-        return status("failed", "文档控制器异常", error=str(exc))
+        return status("failed", "Documentation controller error", error=str(exc))
 
     try:
         payload = json.loads(output_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
-        return status("failed", "文档输出不可读", error=str(exc))
+        return status("failed", "Documentation output is unreadable", error=str(exc))
     error = validate_output(payload, source)
     if error:
-        return status("failed", "Python 文档完整性校验失败", error=error)
+        return status("failed", "Python Documentation completeness check failed", error=error)
 
     payload["sections"] = source["sections"]
     guide_dir = (AXIS / "apps" / app_dir_name / "guide"
@@ -263,7 +263,7 @@ def generate(app: str, app_dir_name: str, run_dir: Path, executable: str,
     skill_dir.mkdir(parents=True, exist_ok=True)
     skill_path = skill_dir / "SKILL.md"
     skill_path.write_text(render_skill(app), encoding="utf-8")
-    return status("completed", "完整命令文档已生成",
+    return status("completed", "Command guide generated",
                   output_json=str(guide_dir / "commands.json"),
                   output_markdown=str(guide_dir / "commands.md"),
                   output_skill=str(skill_path))

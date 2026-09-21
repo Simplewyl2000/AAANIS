@@ -1,12 +1,3 @@
-"""AXIS 内核：固定运行时，人工维护，Builder 不得改动。
-
-Builder 为每条命令提供 spec.json + impl.py（一个 run 函数）。内核只做三件事：
-按 spec 校验参数、调用命令、原样输出命令的执行报告。读取当前状态是独立的
-getter/observe 命令，不再暗藏在写命令前后。
-
-输出信封：stdout 只放一个 JSON，诊断走 stderr。
-退出码：0 成功；2 参数错误；3 命令内声明的错误；4 实现缺陷。
-"""
 import importlib.util
 import json
 import os
@@ -22,8 +13,6 @@ _FALSE_VALUES = {"0", "false", "no"}
 
 
 class AxisError(Exception):
-    """命令实现里的可恢复错误：code 必须在 spec.errors 里声明，fix 告诉 agent 下一步做什么。"""
-
     def __init__(self, code, message, fix):
         super().__init__(message)
         self.code = code
@@ -65,22 +54,22 @@ def _coerce(name, aspec, value):
                     "bool": lambda p: str(p).strip().lower() in ("1", "true", "yes")}[elem]
             value = [cast(p) for p in parts]
     except ValueError:
-        raise AxisError("INVALID_ARGS", f"参数 --{name} 需要 {t}，收到 {value!r}",
-                        "加 --schema 查看参数类型")
+        raise AxisError("INVALID_ARGS", f"Argument --{name} requires {t}; received {value!r}",
+                        "Add --schema to see parameter types")
     if t == "vec":
         size = aspec.get("size")
         if size is not None and len(value) != size:
             raise AxisError("INVALID_ARGS",
-                            f"--{name} 需要 {size} 个分量，收到 {len(value)} 个",
-                            "逗号分隔，如 --value 1,2,3,4")
+                            f"--{name} requires {size} components; received {len(value)} items",
+                            "comma-separated, for example --value 1,2,3,4")
     if t == "enum" and value not in aspec.get("values", []):
-        raise AxisError("INVALID_ARGS", f"--{name} 取值 {value!r} 不合法，可选 {aspec.get('values')}",
-                        "加 --schema 查看合法取值")
+        raise AxisError("INVALID_ARGS", f"--{name} value {value!r} is invalid; choices: {aspec.get('values')}",
+                        "Add --schema to see valid values")
     if t in ("int", "float"):
         lo, hi = aspec.get("min"), aspec.get("max")
         if (lo is not None and value < lo) or (hi is not None and value > hi):
-            raise AxisError("INVALID_ARGS", f"--{name}={value} 超出范围 [{lo}, {hi}]",
-                            "加 --schema 查看取值范围")
+            raise AxisError("INVALID_ARGS", f"--{name}={value} out of range [{lo}, {hi}]",
+                            "Add --schema to see the allowed range")
     return value
 
 
@@ -108,7 +97,7 @@ def validate(spec, raw):
     known = spec.get("args", {})
     for k in raw:
         if k not in known:
-            raise AxisError("INVALID_ARGS", f"未知参数 --{k}", "加 --schema 查看参数表")
+            raise AxisError("INVALID_ARGS", f"Unknown argument --{k}", "Add --schema to see arguments")
     args = {}
     for name, aspec in known.items():
         if name in raw:
@@ -116,7 +105,7 @@ def validate(spec, raw):
         elif "default" in aspec:
             args[name] = aspec["default"]
         elif aspec.get("required"):
-            raise AxisError("INVALID_ARGS", f"缺少必填参数 --{name}", "加 --schema 查看参数表")
+            raise AxisError("INVALID_ARGS", f"Missing required argument --{name}", "Add --schema to see arguments")
         else:
             args[name] = None
     return args
@@ -133,22 +122,22 @@ def load_impl(cmd_dir):
     mod = importlib.util.module_from_spec(mod_spec)
     mod_spec.loader.exec_module(mod)
     if not callable(getattr(mod, "run", None)):
-        raise RuntimeError("impl.py 缺少 run()，内核拒绝注册该命令")
+        raise RuntimeError("impl.py Missing run(); kernel refused to register the command")
     return mod
 
 
 def run(cmd_dir, raw_args):
     spec = load_spec(cmd_dir)
     try:
-        args = validate(spec, raw_args)                      # 第 1 步
+        args = validate(spec, raw_args)
     except AxisError as e:
         _error(e, EXIT_BAD_ARGS)
     try:
         impl = load_impl(cmd_dir)
-        report = impl.run(args)                              # 第 2 步
+        report = impl.run(args)
         if not isinstance(report, dict):
-            raise TypeError(f"run() 必须返回 JSON 对象，收到 {type(report).__name__}")
-        emit(report, EXIT_OK)                                # 第 3 步
+            raise TypeError(f"run() must return JSON object; received {type(report).__name__}")
+        emit(report, EXIT_OK)
     except AxisError as e:
         _error(e, EXIT_CMD_ERROR)
     except Exception as e:
@@ -156,5 +145,5 @@ def run(cmd_dir, raw_args):
         traceback.print_exc(file=sys.stderr)
         emit({"status": "error", "code": "UNEXPECTED",
               "message": f"{type(e).__name__}: {e}",
-              "fix": "这是命令实现的缺陷。产物状态未验证，请勿假定操作成功；可用 observe 查看当前状态。"},
+              "fix": "Command implementation failed. Output state is unverified; inspect it with observe to see the current state."},
              EXIT_UNEXPECTED)

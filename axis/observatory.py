@@ -15,16 +15,16 @@ ROOT = Path(__file__).resolve().parents[1]
 STATIC = ROOT / "monitor" / "static"
 
 PHASES = [
-    ("Stage 1", "能力发现", [
-        "1-探测程序化入口", "2-写普查器", "3-跑普查", "4-验收普查",
-        "5-写引擎和探针", "6-跑探针", "7-列出待办",
+    ("Stage 1", "Capability discovery", [
+        "1-Discover programmatic entrypoint", "2-Write census collector", "3-Run census", "4-Validate census",
+        "5-Write engine and probe", "6-Run probe", "7-List pending capabilities",
     ]),
-    ("Stage 2", "语义过滤", ["8-模型批量过滤待办"]),
-    ("Stage 3", "命令实现", [
-        "9-模型实现成命令", "10-渲染命令", "11-账实对齐", "12-过验证门",
+    ("Stage 2", "Semantic filtering", ["8-Filter capability batches"]),
+    ("Stage 3", "Command implementation", [
+        "9-Implement commands", "10-Render commands", "11-Reconcile capability ledger", "12-Verify commands",
     ]),
-    ("Stage 4", "组织与发布", [
-        "13-组织命令文档和 Skill", "14-冻结成 CLI",
+    ("Stage 4", "Documentation and release", [
+        "13-Generate command documentation and Skill", "14-Freeze as CLI",
     ]),
 ]
 

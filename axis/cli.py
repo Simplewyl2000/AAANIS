@@ -1,19 +1,3 @@
-"""<app>-axis 命令行入口（内核的一部分，人工维护）。
-
-用法：
-  <app>-axis dir                             只列命令类别和每类数量
-  <app>-axis dir <category>                  列出一个类别内的命令
-  <app>-axis dir --search "关键词"           按名称和作用检索命令
-  <app>-axis dir <command>                   查看该命令完整说明书（作用/参数表/调用示例）
-  <app>-axis guide                           一次读取完整精简命令文档
-  <app>-axis <command> --help                同上
-  <app>-axis <command> --schema              查看参数契约（含调用示例）
-  <app>-axis <command> --recipe              查看验证过的端到端示例
-  <app>-axis <command> --k v ...             执行
-  <app>-axis observe --file x                查看文档完整状态（内置）
-  <app>-axis make-demo --file x --text "..." 生成演示文档（内置，供 recipe/探针自包含；
-                                             目标已存在时拒绝覆盖，--force true 除外）
-"""
 import inspect
 import json
 import os
@@ -26,36 +10,36 @@ from axis import kernel
 # booleans such as force/overwrite, use the single form ``--name true|false``.
 _FLAG_NAMES = ("schema", "recipe", "help")
 
-# 内置命令说明书（--schema/--help/dir <name> 时只展示，不执行）
+
 _BUILTIN_SPECS = {
     "observe": {
-        "summary": "查看文档完整状态（内置）：标题、图层/对象列表及各项状态",
+        "summary": "Inspect document state (built-in): title, layers/objects and their states",
         "args": {"file": {"type": "path", "required": True,
-                          "help": "产物文件路径"}},
+                          "help": "Output file path"}},
     },
     "make-demo": {
-        "summary": "生成演示文档（内置）：供 recipe/探针自包含；目标或同名数据文件"
-                   "已存在时拒绝覆盖，--force true 除外",
+        "summary": "Create a demo document for recipes and probes; "
+                   "existing files require --force true to overwrite.",
         "args": {"file": {"type": "path", "required": True,
-                          "help": "演示文档路径"},
+                          "help": "Demo document path"},
                  "text": {"type": "string",
-                          "help": "演示内容，字面 \\n 或换行分隔"},
+                          "help": "Demo content; use literal \\n or newline separators"},
                  "table": {"type": "string",
-                           "help": "行用 | 分隔、单元格用 , 分隔，如 'A,B|C,D'"},
+                           "help": "Rows separated by | and cells by , ; for example 'A,B|C,D'"},
                  "force": {"type": "bool", "default": False,
-                           "help": "允许覆盖已存在的同名文件（默认拒绝，防误覆盖）"}},
+                           "help": "Allow overwriting existing files (disabled by default)"}},
     },
     "dir": {
-        "summary": "命令发现（内置）：dir 列类别；dir --search 关键词检索；dir <命令> 查看完整说明书",
+        "summary": "Discover commands (built-in): dir lists categories; dir --search searches keywords; dir <command> shows full documentation",
         "args": {
             "command": {"type": "string",
-                        "help": "要查看说明书的命令名（可选，位置参数）"},
+                        "help": "Command to inspect (optional positional argument)"},
             "search": {"type": "string",
-                       "help": "按命令名和作用说明检索；多个词都必须匹配"},
+                       "help": "Search command names and descriptions; all terms must match"},
         },
     },
     "guide": {
-        "summary": "读取实现完成后生成的完整精简命令文档",
+        "summary": "Read the generated command guide",
         "args": {},
     },
 }
@@ -91,7 +75,7 @@ def _example_for(app_dir, spec):
     for k, v in demo_args.items():
         if k not in spec.get("args", {}):
             continue
-        # 与 spec recipe 同款的 shell 形态：字符串加引号，其余走 JSON 字面量
+
         cli_key = k.replace("_", "-")
         parts += ([f"--{cli_key}", shlex.quote(str(v))] if isinstance(v, str)
                   else [f"--{cli_key}", json.dumps(v)])
@@ -106,12 +90,11 @@ def _builtin_example(app_dir, name):
         return f"{tool} make-demo --file {f} --text 'Alpha\\nBeta'"
     if name == "guide":
         return f"{tool} guide"
-    return (f"{tool} dir ；{tool} dir --search '关键词'；"
-            f"{tool} dir <命令名>")
+    return (f"{tool} dir ; {tool} dir --search 'keyword'; "
+            f"{tool} dir <command>")
 
 
 def _parse(argv):
-    """拆分元控制开关与参数；所有业务参数都必须写成 ``--k v``。"""
     if not argv:
         return None, set(), {}
     command, flags, kv = argv[0], set(), {}
@@ -120,7 +103,7 @@ def _parse(argv):
         tok = argv[i]
         if not tok.startswith("--"):
             kernel.emit({"status": "error", "code": "INVALID_ARGS",
-                         "message": f"意外的参数 {tok!r}", "fix": "参数写法是 --名字 值"},
+                         "message": f"Unexpected argument {tok!r}", "fix": "Argument syntax: --name value"},
                         kernel.EXIT_BAD_ARGS)
         name = tok[2:]
         if name in _FLAG_NAMES:
@@ -129,7 +112,7 @@ def _parse(argv):
         else:
             if i + 1 >= len(argv):
                 kernel.emit({"status": "error", "code": "INVALID_ARGS",
-                             "message": f"--{name} 缺少值", "fix": "参数写法是 --名字 值"},
+                             "message": f"--{name} Missing value", "fix": "Argument syntax: --name value"},
                             kernel.EXIT_BAD_ARGS)
             kv[name] = argv[i + 1]
             i += 2
@@ -148,15 +131,14 @@ def _normalize_cli_keys(kv, spec):
         if target in normalized:
             kernel.emit(
                 {"status": "error", "code": "INVALID_ARGS",
-                 "message": f"参数 --{key} 与另一写法重复",
-                 "fix": f"只保留 --{target.replace('_', '-')} 一种写法"},
+                 "message": f"Argument --{key} duplicates another spelling",
+                 "fix": f"Use only --{target.replace('_', '-')} one spelling"},
                 kernel.EXIT_BAD_ARGS)
         normalized[target] = value
     return normalized
 
 
 def _iter_specs(app_dir):
-    """按完整命令文档冻结的组织顺序遍历命令说明。"""
     cmd_root = os.path.join(app_dir, "commands")
     if os.path.isdir(cmd_root):
         available = os.listdir(cmd_root)
@@ -178,7 +160,6 @@ def _iter_specs(app_dir):
 
 
 def _catalog(app_dir):
-    """构造分层目录；顶层调用者只拿类别，不展开全部命令。"""
     builtin_rows = [{"command": n, "summary": _BUILTIN_SPECS[n]["summary"]}
                     for n in ("dir", "guide", "observe", "make-demo")]
     by_obj = {"builtin": builtin_rows}
@@ -190,13 +171,12 @@ def _catalog(app_dir):
 
 
 def _dir_list(app_dir):
-    """dir / --list：只列类别和数量，避免把全部命令一次塞给 agent。"""
     tool = _tool_name(app_dir)
     by_obj = _catalog(app_dir)
     categories = [
         {"category": obj, "command_count": len(by_obj[obj]),
-         "summary": ("AXIS 内置命令" if obj == "builtin"
-                     else f"{obj} 对象相关命令")}
+         "summary": ("AXIS Built-in commands" if obj == "builtin"
+                     else f"{obj} Object commands")}
         for obj in by_obj
     ]
     kernel.emit({
@@ -204,38 +184,36 @@ def _dir_list(app_dir):
         "category_count": len(categories),
         "command_count": sum(x["command_count"] for x in categories),
         "categories": categories,
-        "usage": (f"{tool} dir <类别> 查看该类命令；"
-                  f"{tool} dir --search '关键词' 检索；"
-                  f"{tool} dir <命令> 查看完整说明书"),
+        "usage": (f"{tool} dir <category> shows category commands; "
+                  f"{tool} dir --search 'keyword' searches; "
+                  f"{tool} dir <command> shows full documentation"),
     }, kernel.EXIT_OK)
 
 
 def _dir_category(app_dir, category):
-    """dir <类别>：只展开一个类别内的命令。"""
     tool = _tool_name(app_dir)
     commands = _catalog(app_dir).get(category)
     if commands is None:
         kernel.emit({
             "status": "error", "code": "UNKNOWN_CATEGORY",
-            "message": f"没有类别 {category!r}",
-            "fix": f"用 {tool} dir 查看全部类别",
+            "message": f"Category not found {category!r}",
+            "fix": f"Use {tool} dir to list all categories",
         }, kernel.EXIT_BAD_ARGS)
     kernel.emit({
         "status": "ok", "category": category,
         "command_count": len(commands), "commands": commands,
-        "usage": f"{tool} dir <命令> 查看完整说明书",
+        "usage": f"{tool} dir <command> shows full documentation",
     }, kernel.EXIT_OK)
 
 
 def _dir_search(app_dir, query):
-    """按命令名、类别和作用说明检索；多个空格分隔词必须同时匹配。"""
     tool = _tool_name(app_dir)
     terms = [term.casefold() for term in str(query).split() if term.strip()]
     if not terms:
         kernel.emit({
             "status": "error", "code": "INVALID_ARGS",
-            "message": "--search 需要至少一个关键词",
-            "fix": f"{tool} dir --search '要完成的动作或对象'",
+            "message": "--search At least one search term is required",
+            "fix": f"{tool} dir --search 'action or object'",
         }, kernel.EXIT_BAD_ARGS)
     matches = []
     for category, rows in _catalog(app_dir).items():
@@ -254,12 +232,11 @@ def _dir_search(app_dir, query):
         "query": query,
         "match_count": len(matches),
         "commands": matches,
-        "usage": f"{tool} dir <命令> 查看完整说明书",
+        "usage": f"{tool} dir <command> shows full documentation",
     }, kernel.EXIT_OK)
 
 
 def _dir_show(app_dir, name):
-    """dir <name> / <name> --help / 内置命令 --schema：完整说明书，不执行。"""
     tool = _tool_name(app_dir)
     if name in _BUILTIN_SPECS:
         b = _BUILTIN_SPECS[name]
@@ -269,8 +246,8 @@ def _dir_show(app_dir, name):
     cmd_dir = os.path.join(app_dir, "commands", name)
     if not os.path.isfile(os.path.join(cmd_dir, "spec.json")):
         kernel.emit({"status": "error", "code": "UNKNOWN_COMMAND",
-                     "message": f"没有命令 {name!r}",
-                     "fix": f"用 {tool} dir 查看全部命令"}, kernel.EXIT_BAD_ARGS)
+                     "message": f"Command not found {name!r}",
+                     "fix": f"Use {tool} dir to list all commands"}, kernel.EXIT_BAD_ARGS)
     spec = kernel.load_spec(cmd_dir)
     kernel.emit({"status": "ok", "command": spec.get("command", name),
                  "summary": spec.get("summary", ""), "args": spec.get("args", {}),
@@ -280,20 +257,20 @@ def _dir_show(app_dir, name):
 
 
 def _builtin(app_dir, command, kv, flags):
-    import engine  # app 目录下的固定引擎助手
+    import engine
     try:
         if command == "guide":
             path = os.path.join(app_dir, "guide", "commands.json")
             if not os.path.isfile(path):
                 raise kernel.AxisError(
-                    "GUIDE_UNAVAILABLE", "当前发布包没有完整命令文档",
-                    "完成命令实现后的文档阶段并重新冻结发布包")
+                    "GUIDE_UNAVAILABLE", "This release has no command guide",
+                    "Complete documentation and rebuild the release")
             with open(path, encoding="utf-8") as handle:
                 guide = json.load(handle)
             kernel.emit({"status": "ok", "guide": guide}, kernel.EXIT_OK)
         if command == "observe":
             if "file" not in kv:
-                raise kernel.AxisError("INVALID_ARGS", "缺少 --file", "observe --file <文档路径>")
+                raise kernel.AxisError("INVALID_ARGS", "Missing --file", "observe --file <document path>")
             kernel.emit({"status": "ok", "state": engine.observe(kv["file"])}, kernel.EXIT_OK)
         if command == "make-demo":
             args = kernel.validate(
@@ -304,12 +281,12 @@ def _builtin(app_dir, command, kv, flags):
             if os.path.exists(path) and not force:
                 raise kernel.AxisError(
                     "OUTPUT_EXISTS",
-                    f"make-demo 拒绝覆盖已存在的文件：{path}",
-                    "换 --file 目标路径；确认文件无用后加 --force true 重试")
+                    f"make-demo Refusing to overwrite existing file: {path}",
+                    "Change --file target path; to overwrite the file, add --force true and retry")
             table_cells = None
-            if "table" in kv:  # 行用 | 分隔、单元格用 , 分隔，如 'A,B|C,D'
+            if "table" in kv:
                 table_cells = [row.split(",") for row in kv["table"].split("|")]
-            # force 是后加的能力：引擎支持才透传（旧引擎由上面的存在性检查兜底）
+
             if "force" in inspect.signature(engine.make_demo_doc).parameters:
                 engine.make_demo_doc(path, args.get("text"), table_cells, force=force)
             else:
@@ -327,11 +304,11 @@ def main():
         app_dir, argv = os.path.abspath(argv[1]), argv[2:]
     else:
         kernel.emit({"status": "error", "code": "INVALID_ARGS",
-                     "message": "缺少 --app <应用目录>", "fix": "请通过 bin/ 下的包装脚本调用"},
+                     "message": "Missing --app <Application directory>", "fix": "Invoke through the launcher in bin/ ."},
                     kernel.EXIT_BAD_ARGS)
-    sys.path.insert(0, app_dir)  # 让 impl.py 和内置命令能 import engine
+    sys.path.insert(0, app_dir)
 
-    # dir 带位置参数（dir <类别或命令>），须在 _parse 之前拦截
+
     if argv and argv[0] == "dir":
         rest = argv[1:]
         if not rest:
@@ -347,10 +324,10 @@ def main():
                 _dir_show(app_dir, target)
             _dir_category(app_dir, target)
         kernel.emit({"status": "error", "code": "INVALID_ARGS",
-                     "message": "dir 用法：dir [类别或命令名] 或 dir --search <关键词>",
-                     "fix": (f"{_tool_name(app_dir)} dir 或 "
-                             f"{_tool_name(app_dir)} dir --search '关键词' 或 "
-                             f"{_tool_name(app_dir)} dir <类别或命令名>")},
+                     "message": "dir Usage: dir [category-or-command] or dir --search <keyword>",
+                     "fix": (f"{_tool_name(app_dir)} dir or "
+                             f"{_tool_name(app_dir)} dir --search 'keyword' or "
+                             f"{_tool_name(app_dir)} dir <category-or-command>")},
                     kernel.EXIT_BAD_ARGS)
 
     command, flags, kv = _parse(argv)
@@ -358,14 +335,14 @@ def main():
         _dir_list(app_dir)
     if command in ("guide", "observe", "make-demo"):
         if "schema" in flags or "help" in flags:
-            _dir_show(app_dir, command)  # 内置命令：只展示说明书，不执行
+            _dir_show(app_dir, command)
         _builtin(app_dir, command, kv, flags)
 
     cmd_dir = os.path.join(app_dir, "commands", command)
     if not os.path.isfile(os.path.join(cmd_dir, "spec.json")):
         kernel.emit({"status": "error", "code": "UNKNOWN_COMMAND",
-                     "message": f"没有命令 {command!r}",
-                     "fix": f"用 {_tool_name(app_dir)} dir 查看全部命令"},
+                     "message": f"Command not found {command!r}",
+                     "fix": f"Use {_tool_name(app_dir)} dir to list all commands"},
                     kernel.EXIT_BAD_ARGS)
     spec = kernel.load_spec(cmd_dir)
     if "schema" in flags or "help" in flags:

@@ -12,26 +12,9 @@ from routing import command_name, route_for
 AXIS = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(AXIS))
 from axis import system_config  # noqa: E402
-# 第一阶段的运行结果有两个落点：新跑的在它自己的 runs 目录下，历史那批在
-# 实验目录下。两处都要找，否则刚跑完的调查在这一步会被当成不存在。
-RESULT_ROOTS = (
-    AXIS / "stages" / "01_capability_discovery" / "runs",
-    AXIS / "experiments" / "task_minimum_subset" / "results",
-)
-RESULTS = RESULT_ROOTS[1]
-SELECTION = RESULTS / "minimum-20260728" / "empirical_minimum_subset.json"
-RUNS = (
-    "minimum-discovery-20260728",
-    "minimum-discovery-retry-20260728",
-    "minimum-discovery-single-20260729",
-    "minimum-discovery-final-20260729",
-)
-SUPPLEMENTAL_RESULTS = (
-    AXIS / "experiments" / "framework_validation"
-    / "results" / "validation-20260728"
-)
-PIPELINE_REQUIREMENTS = Path(__file__).with_name(
-    "pipeline_requirements.json")
+
+
+RESULT_ROOTS = (AXIS / "stages" / "01_capability_discovery" / "runs",)
 APP_DIR = {}
 
 
@@ -40,12 +23,6 @@ def load(path):
 
 
 def selection_from_accepted(accepted):
-    """不给挑选清单时，就把第一阶段所有已接受的发现全部纳入。
-
-    原来这一步必须喂一份挑选清单，清单是照着评测任务反推出来的，等于让产出
-    的命令跟着评测走。全量模式下不做这层挑选：第一阶段认可了多少能力，就
-    实现多少条命令。
-    """
     by_app = {}
     for app, key in accepted:
         by_app.setdefault(app, []).append(key)
@@ -84,7 +61,7 @@ def implementation_discovery(assigned, reviewed):
             "arguments": [],
             "implementation_route": "single_session_operation",
             "persistence_check": (
-                "由实现 Agent 根据实际命令效果确定；随后由 Python 验证"),
+                "Determined by the implementation Agent using actual command effects; then verified by Python Verify"),
         }],
         "requires_runtime_investigation": True,
     }
@@ -121,7 +98,7 @@ def accepted_items(run_names):
                     assigned = assigned_by_id[item_id]
                     # item_id is the census identity.  Symbol names are only
                     # labels and can legitimately repeat for two registry
-                    # entries (for example Group and PathElement in Inkex).
+                    # entries belonging to different runtime types.
                     key = item_id
                     accepted[(original_batch["app"], key)] = {
                         "key": key,
@@ -218,127 +195,50 @@ def expand_item(item):
             or f"command:{command}")
         row["persistence_check"] = candidate.get(
             "persistence_check",
-            "执行后保存文件，关闭并重新打开，再用独立读取命令确认目标状态")
+            "Save, close, and reopen the file after execution; confirm state with an independent read command")
         expanded.append(row)
     return expanded
-
-
-def required_operations():
-    """读取清单：经真实任务验证为必需、重新生成时不得遗漏的命令。"""
-    payload = load(PIPELINE_REQUIREMENTS)
-    defaults = payload["generation_defaults"]
-    result = {}
-    for app, row in payload["apps"].items():
-        app_dir = row["app_dir"]
-        operations = []
-        for command in row["commands"]:
-            atlas = AXIS / "apps" / app_dir / "atlas" / f"{command}.json"
-            cell = load(atlas) if atlas.is_file() else {}
-            binding = cell.get("binding", {})
-            operations.append({
-                "key": f"required:{command}",
-                "command": command,
-                "assigned": {
-                    "item_id": f"required:{app}:{command}",
-                    "symbol": (cell.get("census_ref") or {}).get(
-                        "symbol", command),
-                },
-                "discovery": {
-                    "disposition": "executable",
-                    "runtime_object": binding.get("runtime_type", ""),
-                    "operation": binding.get(
-                        "action", binding.get(
-                            "capability", command)),
-                    "parameters": [
-                        {"name": name, "type": spec.get("type", "scalar")}
-                        for name, spec in binding.get(
-                            "cli_args", {}).items()
-                    ],
-                    "command_candidates": [{
-                        "name": command,
-                        "capability_class": cell.get(
-                            "capability_class", "action"),
-                        "implementation_route": defaults[
-                            "generation_route"],
-                        "persistence_check": defaults[
-                            "persistence_check"],
-                    }],
-                },
-                "candidate": {
-                    "name": command,
-                    "capability_class": cell.get(
-                        "capability_class", "action"),
-                },
-                "generation_route": defaults["generation_route"],
-                "persistence_check": defaults["persistence_check"],
-                "source": str(
-                    atlas.relative_to(AXIS)) if atlas.is_file()
-                    else str(PIPELINE_REQUIREMENTS.relative_to(AXIS)),
-                "source_items": [f"required:{command}"],
-                "required_release_command": True,
-            })
-        result[app] = operations
-    return result
 
 
 def main():
     global APP_DIR
     parser = argparse.ArgumentParser()
-    parser.add_argument("--run-id", default="commands-20260729")
+    parser.add_argument("--run-id", required=True)
     parser.add_argument(
-        "--selection", type=Path, default=SELECTION,
-        help="挑选清单；传 --all-accepted 时忽略")
+        "--selection", type=Path,
+        help="Selection file; ignored with --all-accepted .")
     parser.add_argument(
         "--all-accepted", action="store_true",
-        help="不按挑选清单，把第一阶段所有已接受的发现全部实现成命令")
+        help="Implement all approved discoveries without a selection file")
     parser.add_argument(
         "--apps", default="",
-        help="逗号分隔，只处理这几款软件；留空表示全部")
+        help="Comma-separated application names; empty means all")
     parser.add_argument(
-        "--config", help="AXIS 全局配置；默认读取根目录 axis-config.json")
+        "--config", help="AXIS Global configuration; defaults to the root axis-config.json")
     parser.add_argument(
         "--discovery-run", action="append", dest="discovery_runs",
-        help="可重复；默认读取既有四轮发现结果")
+        help="Repeatable discovery run ID")
     parser.add_argument(
         "--discovery-result", action="append", type=Path, default=[],
-        help="补充的 discovery_result.json；可重复")
-    parser.add_argument(
-        "--include-framework-results",
-        action=argparse.BooleanOptionalAction, default=True,
-        help="若存在框架验证结果，则纳入其中已接受的发现")
+        help="Additional discovery_result.json; repeatable")
     parser.add_argument(
         "--only-needed", action=argparse.BooleanOptionalAction, default=True,
-        help="只生成 atlas 不存在或验证未通过的命令")
-    parser.add_argument(
-        "--include-pipeline-requirements",
-        action=argparse.BooleanOptionalAction, default=True,
-        help="纳入经过真实任务证明、以后每次发布都不得遗漏的命令")
+        help="Generate only atlas missing or unverified commands")
     args = parser.parse_args()
     APP_DIR = system_config.load(args.config).get("app_aliases", {})
 
-    if args.discovery_runs:
-        discovery_runs = args.discovery_runs
-    elif args.all_accepted:
-        # 全量模式下不挑运行：所有跑过的第一阶段结果一律纳入。
-        discovery_runs = sorted({
-            path.name for root in RESULT_ROOTS if root.is_dir()
-            for path in root.iterdir() if path.is_dir()})
-    else:
-        discovery_runs = RUNS
+    discovery_runs = args.discovery_runs or [args.run_id]
     accepted = accepted_items(discovery_runs)
     supplemental_paths = list(args.discovery_result)
-    if args.include_framework_results and SUPPLEMENTAL_RESULTS.is_dir():
-        supplemental_paths.extend(sorted(
-            SUPPLEMENTAL_RESULTS.glob("*/attempt-*/discovery_result.json")))
     supplements = supplemental_items(dict.fromkeys(supplemental_paths))
     accepted.update(supplements)
 
-    if args.all_accepted:
+    if args.all_accepted or args.selection is None:
         selection = selection_from_accepted(accepted)
         if not selection["apps"]:
             raise SystemExit(
-                "第一阶段没有任何已接受的发现，没有东西可以实现。\n"
-                "先跑：python3 stages/01_capability_discovery/workflow.py run")
+                "No approved discoveries available for implementation.\n"
+                "First run: python3 stages/01_capability_discovery/workflow.py run")
     else:
         selection = load(args.selection)
         expected = {
@@ -361,7 +261,6 @@ def main():
     out = Path(__file__).parent / "runs" / args.run_id
     out.mkdir(parents=True, exist_ok=True)
     totals = {}
-    required = required_operations() if args.include_pipeline_requirements else {}
     for app_row in selection["apps"]:
         app = app_row["app"]
         app_dir = APP_DIR.get(app, app)
@@ -401,10 +300,6 @@ def main():
                         by_command[name]["generation_route"] = item[
                             "generation_route"]
         operations = list(by_command.values())
-        for item in required.get(app, []):
-            if item["command"] not in {
-                    operation["command"] for operation in operations}:
-                operations.append(item)
         if args.only_needed:
             operations = [
                 item for item in operations
@@ -426,7 +321,6 @@ def main():
         totals[app] = {
             "discovered_items": len(selected_keys),
             "commands": len(operations),
-            "required_release_commands": len(required.get(app, [])),
         }
 
     summary = {

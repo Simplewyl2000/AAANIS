@@ -1,120 +1,98 @@
-# 程序化入口探测 Prompt（软件无关模板）
+# Programmatic entrypoint discovery
 
-> 用法：把 {软件名}、{运行时启动方式} 替换掉，整段交给实现模型执行。
-> 产物是 `AXIS/apps/{软件名}/runtime.json`。它声明怎样运行下一步由实现模型
-> 编写的 Collector（能力收集器），不规定 Collector 使用哪一种语言或接口。
+Find at least one programmatic query entrypoint for {app} that works on this
+machine. Declare how to run a collector stored in the application directory.
+The collector may use any suitable language or official interface.
 
----
+Launcher hint: {launch}
 
-## 任务
+## Scope
 
-为 {软件名} 找到至少一个在当前机器上真实可用的**程序化查询入口**，并把
-“怎样运行应用目录中的 Collector 文件”写成声明。
+An entrypoint must repeatedly expose information reported by the installed
+application or its official installation registries without human interaction.
+Possible sources include command registries, batch actions, interactive command
+shells, extension manifests, interprocess services, embedded scripts, and official
+libraries. Execution inside the application process is not required.
 
-程序化查询入口的意思是：程序能够稳定取得软件自报或软件安装物登记的能力信息，
-而不是要求人点击界面。入口不必是 Python，也不必进入软件进程。命令行登记表、
-批处理动作、交互式命令行、扩展清单、进程间服务、内嵌脚本和官方程序库都合法。
+This step discovers entrypoints and the collector runner. A later step writes
+`apps/{app}/census.py`, combining entrypoints as needed to cover:
 
-起点提示：{运行时启动方式}
+1. Operation dispatch registries.
+2. Creatable types, services, or plugins.
+3. Document object types.
+4. Menu and interface operations.
+5. Object properties and methods.
+6. Named type existence checks.
 
-## 职责边界
+One entrypoint need not cover all channels. The collector records unavailable
+channels with observed reasons.
 
-这一步只找入口和 Collector 的运行办法；下一步的实现模型负责写真正的
-`apps/{软件名}/census.py` Collector，并用入口填充六类调查通道。核心脚本不能
-替实现模型决定接口，也不能因为软件没有进程内 Python 就提前判定无法接入。
+## Required local checks
 
-后续六类调查通道是：
+Record commands and results in `notes`:
 
-1. 软件执行操作时使用的登记表；
-2. 软件能创建的类型、服务或插件；
-3. 文档能够包含的对象种类；
-4. 菜单或界面声称的操作；
-5. 对象的属性和方法；
-6. 按名称检查已知类型是否存在。
+1. Query at least one real capability or type without interactive input.
+2. If execution is supported, run a harmless minimal action and exit normally.
+3. Verify that the collector host can execute a temporary script and exit.
+4. Identify display, isolated profile, environment, and timeout requirements.
 
-一个入口不必同时覆盖六类。Collector 可以组合多个真实入口；某一类确实没有
-等价物时，由 Collector 在普查结果中记录“不可用”和实测原因，而不是本步骤阻断。
+Information must come from the installed software or its official registries.
+Commands must execute and results must be reproducible.
 
-## 常见入口形态（不是封闭清单）
+## Output
 
-- 软件自带脚本解释器，例如 Blender 的后台 Python；
-- 外部语言通过官方桥或服务连接软件，例如 LibreOffice UNO；
-- 软件公开的命令/动作/过程/算法登记表，例如 `--action-list`；
-- 可批量执行的命令行、动作文件或交互式命令行；
-- 软件安装目录中的扩展、插件、菜单和类型登记清单；
-- 官方扩展开发包或文档对象程序库；
-- 其他能重复查询和执行的程序化接口。
-
-不要把“代码是否在软件进程内执行”当作合法性判据。真正的判据是：信息是否来自
-当前安装的软件或其正式登记物，命令是否可以真实执行，结果是否可以重复验证。
-
-## 必须实测
-
-至少完成以下检查，并把命令和结果写进 `notes`：
-
-1. 查询入口能无人工交互地返回至少一项真实能力或类型；
-2. 如果入口同时支持执行，执行一个无破坏的最小动作并正常退出；
-3. Collector 的宿主命令能运行一个临时文件并正常退出；
-4. 说明是否需要虚拟显示、独立配置目录、环境变量或超时保护。
-
-例如 Inkscape 即使没有 `--python`，只要 `--action-list` 能返回动作登记、
-`--actions` 或 `--shell` 能执行动作，就已经存在合法程序化入口。Collector 可以
-由系统 Python 运行，再通过参数数组调用这些入口；这不等于伪造能力。
-
-## 输出契约
-
-写 `AXIS/apps/{软件名}/runtime.json`：
+Write `apps/{app}/runtime.json`:
 
 ```json
 {
-  "runner": ["<运行 Collector 的程序>", "<参数>", "{script}"],
+  "runner": ["<collector host>", "<argument>", "{script}"],
   "prefix": null,
   "env": {},
   "mkdirs": [],
-  "document_extension": ".<该软件主要可编辑文档的扩展名>",
+  "document_extension": ".<editable-document-extension>",
   "entrypoints": [
     {
-      "kind": "<入口的人类可读类别>",
-      "query": "<实测查询命令或调用>",
-      "execute": "<实测执行命令或调用；没有则说明>"
+      "kind": "<entrypoint category>",
+      "query": "<verified query command or call>",
+      "execute": "<verified execution call, or explanation if unavailable>"
     }
   ],
-  "notes": "实测命令、输出摘要和运行注意事项"
+  "notes": "Verified commands, output summaries, and runtime requirements"
 }
 ```
 
-- `runner` 是完整命令模板，必须恰好包含一个 `{script}`。流水线会把 Collector
-  或后续探针文件的路径填在这里。常见值是 `["python3", "{script}"]`，但不
-  限定语言。
-- `prefix` 是独立环境根目录；不用则为 null。`runner` 和 `env` 可引用
-  `{prefix}`。
-- `env` 是额外环境变量。值以 `:` 结尾表示接在原值前面，以 `:` 开头表示接在
-  原值后面。
-- `mkdirs` 是运行前必须创建的目录。
-- `document_extension` 是验证器创建演示文档时使用的扩展名，例如 `.svg`；公共
-  验证器不会维护软件名称到扩展名的写死表。
-- `entrypoints` 记录实现模型下一步可以使用的真实入口，不要求覆盖六类调查通道。
+- `runner` is a command template containing exactly one `{script}` placeholder.
+  A common value is `["python3", "{script}"]`, but the language is unrestricted.
+- `prefix` optionally declares an environment root referenced as `{prefix}` in
+  `runner` and `env`.
+- `env` supplies environment variables. Values ending in `:` prepend to existing
+  values; values starting with `:` append to existing values.
+- `mkdirs` lists directories to create before execution.
+- `document_extension` determines the verifier's demo file extension.
+- `entrypoints` records verified interfaces available to the collector.
 
-旧软件已有的 `interpreter` 声明由核心代码继续兼容；新软件必须写 `runner`。
+Use `runner` for new applications. Existing `interpreter` declarations remain
+supported for compatibility.
 
-## 验收
+## Validation
 
-`python3 axis/onboard.py --app {软件名} --only 探测程序化入口` 通过。
+```bash
+python3 axis/onboard.py --app {app} --only "Discover programmatic entrypoint"
+```
 
-机械验收只检查声明能否组成命令、宿主程序是否存在。下一步运行 Collector 时会
-检查入口是否真的产生能力清单。
+This check verifies the declaration and host executable. The later collector run
+checks whether the entrypoint actually produces a capability inventory.
 
-## 什么时候才允许阻塞
+Only report `BLOCKED.md` after investigating local command help, operation
+registries, interactive interfaces, extension registries, official bridges,
+embedded scripts, and installation files without finding a repeatable query
+interface. Missing embedded Python, complete reflection, or individual channels
+alone does not establish a blocker.
 
-只有在实现模型实际检查了命令行帮助、动作/过程登记、交互入口、扩展或插件登记、
-官方桥、内嵌脚本和安装物后，仍找不到任何可重复查询的程序化入口，才允许写
-`BLOCKED.md`。缺少进程内 Python、缺少完整反射或六类通道不齐，都不能单独作为
-本步骤阻塞理由。
+## Constraints
 
-## 铁律
-
-- 只写 `apps/{软件名}/` 下的文件，不动 `axis/`、其他 `apps/`、文档；
-- 不联网；
-- 不把模型记忆或在线文档当成当前安装版本的能力；
-- 不编造查询结果；入口不完整要如实留给 Collector 的 `unavailable` 记录；
-- 不因接口形态陌生就把软件判为无法接入。
+- Write only under `apps/{app}/`.
+- Do not access the network.
+- Do not treat model memory or online documentation as installed-version evidence.
+- Never invent query results; record incomplete coverage in the collector output.
+- Write generated documentation, messages, and metadata in English.

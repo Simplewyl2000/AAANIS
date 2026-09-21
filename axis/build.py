@@ -1,48 +1,3 @@
-"""AXIS 构建器（S4 模板绑定）：atlas 格子 -> 命令目录。
-
-输入：apps/<app>/atlas/*.json（每格一条：binding + demo + census_ref 证据）。
-输出：apps/<app>/commands/<command>/{spec.json, impl.py}。
-
-impl.py 是模板渲染的薄壳：全部执行逻辑在 axis/proptemplate.py（TCB），
-impl 只携带 BINDING 数据——"绑定而非发明"的落地（METHOD.md 转向一）。
-
-格子 JSON 契约（S2 工序产出，逐格带运行时核验证据）：
-{
-  "command": "char-set-bold",          // 命名 = 格坐标 <object>-<action>
-  "summary": "...",                     // 一句话说明（agent 在 --list 里看到）
-  "binding": {
-    "kind": "span_prop|para_prop|named_prop|global_prop",
-    "path": "CharWeight",               // 引擎属性路径（必须落在 census 内）
-    "value": {"type": "bool|int|float|string|enum|color|vec3",
-              "threshold"?, "true"?, "false"?,          // bool
-              "values"?, "names"?,                       // enum
-              "min"?, "max"?}                            // int/float
-  },
-  "census_ref": {"channel": "properties.char", "symbol": "CharWeight"},
-  "demo": {"text": "...", "args": {"match": "...", "value": true},
-           "expect": true},
-  "errors_extra": {"CODE": "说明"}      // 可选，格特有错误码
-}
-
-processing 格（带输入、参数和输出的动作命令）：
-{
-  "command": "native-buffer",
-  "summary": "...",
-  "binding": {
-    "kind": "processing",
-    "algorithm": "native:buffer",        // 必须落在 census dispatch.providers.* 内
-    "output_param": "OUTPUT", "output_kind": "vector|raster",
-    "inputs": [{"name": "INPUT", "arg": "input", "type": "source",
-                "optional": false, "desc": "Input layer"}],
-    "params": [{"name": "DISTANCE", "arg": "distance", "type": "distance",
-                "spec_type": "float", "optional": false, "default": 10,
-                "desc": "Distance", "options"? : [...]}]
-  },
-  "census_ref": {"channel": "dispatch.providers.native", "symbol": "native:buffer"},
-  "demo": {"text": "...", "args": {"input": "cities", "output": "out",
-           "distance": 10}, "expect": true}
-}
-"""
 import argparse
 import json
 import os
@@ -55,10 +10,10 @@ if _ROOT not in sys.path:
 
 from axis import app_contract, runtime  # noqa: E402
 
-IMPL_TEMPLATE = '''"""{command}：AXIS 模板生成，勿手改。绑定数据见 BINDING。"""
+IMPL_TEMPLATE = '''"""{command}: AXIS Generated from template. Binding:  BINDING."""
 import engine
 from axis import proptemplate
-from axis.kernel import AxisError  # noqa: F401  (供 engine 抛错语义对齐)
+from axis.kernel import AxisError  # noqa: F401  (for engine error compatibility)
 
 BINDING = {binding}
 
@@ -69,10 +24,10 @@ def run(args):
     return report
 '''
 
-ACTION_IMPL_TEMPLATE = '''"""{command}：AXIS 模板生成，勿手改。动作绑定见 BINDING。"""
+ACTION_IMPL_TEMPLATE = '''"""{command}: AXIS Generated from template. Action binding:  BINDING."""
 import engine
 from axis import actiontemplate
-from axis.kernel import AxisError  # noqa: F401  (供 engine 抛错语义对齐)
+from axis.kernel import AxisError  # noqa: F401  (for engine error compatibility)
 
 BINDING = {binding}
 
@@ -83,10 +38,10 @@ def run(args):
     return report
 '''
 
-TRANSFORM_IMPL_TEMPLATE = '''"""{command}：AXIS 模板生成，勿手改。变换绑定见 BINDING。"""
+TRANSFORM_IMPL_TEMPLATE = '''"""{command}: AXIS Generated from template. Transform binding:  BINDING."""
 import engine
 from axis import transformtemplate
-from axis.kernel import AxisError  # noqa: F401  (供 engine 抛错语义对齐)
+from axis.kernel import AxisError  # noqa: F401  (for engine error compatibility)
 
 BINDING = {binding}
 
@@ -97,7 +52,7 @@ def run(args):
     return report
 '''
 
-OBSERVATION_IMPL_TEMPLATE = '''"""{command}：AXIS 模板生成的独立只读观测命令。"""
+OBSERVATION_IMPL_TEMPLATE = '''"""{command}: AXIS Generated independent read-only observation command."""
 import engine
 from axis.kernel import AxisError  # noqa: F401
 
@@ -110,7 +65,7 @@ def run(args):
     return report
 '''
 
-GETTER_IMPL_TEMPLATE = '''"""{command}：AXIS 自动生成的独立属性读取命令。"""
+GETTER_IMPL_TEMPLATE = '''"""{command}: AXIS Generated independent property getter."""
 import engine
 from axis import proptemplate
 from axis.kernel import AxisError  # noqa: F401
@@ -125,29 +80,28 @@ def run(args):
 '''
 
 BASE_ERRORS = {
-    "INPUT_NOT_FOUND": "输入文件不存在",
-    "ENGINE_UNAVAILABLE": "引擎不可用",
-    "TARGET_NOT_FOUND": "按选择器找不到目标",
-    "OPEN_FAILED": "引擎打不开产物文件",
+    "INPUT_NOT_FOUND": "Input file does not exist",
+    "ENGINE_UNAVAILABLE": "Engine unavailable",
+    "TARGET_NOT_FOUND": "Selector did not match a target",
+    "OPEN_FAILED": "Engine cannot open the output file",
 }
 
 
 def value_args(vspec):
-    """值参数随类型走：vec3 拆 x/y/z，其余统一 --value。"""
     vt = vspec["type"]
     if vt == "vec3":
-        return {k: {"type": "float", "required": True, "help": f"{k} 分量"}
+        return {k: {"type": "float", "required": True, "help": f"{k} component"}
                 for k in ("x", "y", "z")}
     if vt == "vec":
         return {"value": {"type": "vec", "size": vspec.get("size"),
                           "elem": vspec.get("elem", "float"), "required": True,
-                          "help": f"{vspec.get('size', 'N')} 个分量，逗号分隔"}}
+                          "help": f"{vspec.get('size', 'N')} components, comma-separated"}}
     arg = {"type": {"bool": "bool", "int": "int", "float": "float"}.get(vt, "string"),
            "required": vt != "bool",
-           "help": "目标值"}
+           "help": "target value"}
     if vt == "bool":
         arg["default"] = True
-        arg["help"] = "true 设置 / false 取消"
+        arg["help"] = "true Set / false Clear"
     if vt == "enum":
         arg["type"] = "enum"
         arg["values"] = vspec["values"]
@@ -156,12 +110,11 @@ def value_args(vspec):
             if k in vspec:
                 arg[k] = vspec[k]
     if vt == "color":
-        arg["help"] = "颜色，形如 #FF8800"
+        arg["help"] = "color, for example #FF8800"
     return {"value": arg}
 
 
 def _default_for_spec(p):
-    """processing 参数默认值 -> spec arg 默认值；转不动就返回 None（不给默认）。"""
     d = p.get("default")
     if d is None:
         return None
@@ -225,7 +178,7 @@ def render_spec(cell, app=None, contract=None):
         getter = cmd.replace("-set-", "-get-", 1)
         spec["related"] = {
             "read_current": getter,
-            "hint": f"读取当前值请用 {getter}",
+            "hint": f"Read the current value with {getter}",
         }
     return spec
 
@@ -240,14 +193,13 @@ def render_impl(cell):
 
 
 def render_getter(cell, setter_spec, selector_args):
-    """从属性 setter 生成参数更少的 getter：保留 file 和选择器，删除值参数。"""
     setter = cell["command"]
     command = setter.replace("-set-", "-get-", 1)
     selector_names = {"file"} | set(selector_args[cell["binding"]["kind"]])
     args = {k: v for k, v in setter_spec["args"].items() if k in selector_names}
     spec = {
         "command": command,
-        "summary": f"读取 {setter_spec['summary']} 对应属性的当前值",
+        "summary": f"Read {setter_spec['summary']} the current property value",
         "layer": "observation",
         "capability_class": "observation",
         "object": setter_spec["object"],
@@ -260,7 +212,7 @@ def render_getter(cell, setter_spec, selector_args):
         "paired_setter": setter,
         "related": {
             "write_value": setter,
-            "hint": f"修改这个值请用 {setter}",
+            "hint": f"Modify this value with {setter}",
         },
     }
     return spec, GETTER_IMPL_TEMPLATE.format(
@@ -268,11 +220,11 @@ def render_getter(cell, setter_spec, selector_args):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="atlas 格子 -> 命令目录")
+    ap = argparse.ArgumentParser(description="atlas atlas entry -> command directory")
     ap.add_argument("--app", required=True)
     ap.add_argument(
         "--only",
-        help="只构建这一条 atlas 命令；用于逐命令验收，不清理其他命令")
+        help="Build only this atlas command; preserve other commands during targeted validation")
     args = ap.parse_args()
 
     census_path = os.path.join(
@@ -289,12 +241,12 @@ def main():
     if args.only:
         filename = f"{args.only}.json"
         if not os.path.isfile(os.path.join(atlas_dir, filename)):
-            raise SystemExit(f"[build] 找不到命令 atlas：{filename}")
+            raise SystemExit(f"[build] Command not found atlas: {filename}")
         cells = [filename]
     else:
         cells = sorted(f for f in os.listdir(atlas_dir) if f.endswith(".json"))
     if not cells:
-        raise SystemExit(f"{atlas_dir} 里没有格子 JSON")
+        raise SystemExit(f"{atlas_dir} contains no atlas entries JSON")
     command_sources = {}
     for filename in cells:
         cell = json.load(open(os.path.join(atlas_dir, filename),
@@ -309,7 +261,7 @@ def main():
             f"{command}: {', '.join(sources)}"
             for command, sources in sorted(duplicates.items()))
         raise SystemExit(
-            "[build] 多个 atlas 格子生成同一命令，拒绝静默覆盖：" + detail)
+            "[build] Multiple atlas atlas entries generate the same command; refusing overwrite: " + detail)
     equivalents_path = os.path.join(_ROOT, "apps", args.app, "equivalences.json")
     equivalents = (json.load(open(equivalents_path, encoding="utf-8"))
                    if os.path.isfile(equivalents_path) else {})
@@ -322,7 +274,7 @@ def main():
         if ref_key in merged_refs:
             canonical = equivalents[ref_key]["canonical_command"]
             if cell["command"] != canonical:
-                print(f"[build] skip {cell['command']}：等价能力已合并到 {canonical}")
+                print(f"[build] skip {cell['command']}: equivalent capability merged into {canonical}")
                 continue
         spec = render_spec(cell, app=args.app, contract=contract)
         cmd_dir = os.path.join(out_root, cell["command"])
@@ -345,7 +297,7 @@ def main():
             open(os.path.join(getter_dir, "impl.py"), "w").write(getter_impl)
             print(f"[build] {getter}  <-  getter for {cell['command']}")
             generated.append(getter)
-    # 构建目录必须精确反映本次 atlas，不能让已经删除或合并的旧命令继续存活。
+
     if not args.only:
         for name in sorted(set(os.listdir(out_root)) - set(generated)):
             stale = os.path.join(out_root, name)
@@ -353,7 +305,7 @@ def main():
                 import shutil
                 shutil.rmtree(stale)
                 print(f"[build] remove stale {name}")
-    print(f"[build] {args.app}: {len(generated)} 条命令已生成到 {out_root}")
+    print(f"[build] {args.app}: {len(generated)} commands generated in {out_root}")
 
 
 if __name__ == "__main__":

@@ -17,8 +17,8 @@
     "timeout",
     "failed",
     "hang",
-    "执行错误",
-    "保存重开后状态未改变"
+    "execution error",
+    "state unchanged after saving and reopening"
   ],
   "notes": "Applications are discovered from apps/*; execution settings live in ../../axis-config.json"
 }

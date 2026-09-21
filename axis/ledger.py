@@ -1,8 +1,3 @@
-"""把运行时普查结果整理成不丢信息的结构化能力账本。
-
-这个模块不判断一项能力是否有用、是否应公开或是否已经被命令覆盖。
-它只展开 ``channels`` 下的列表记录，并删除完整 JSON 内容完全相同的重复项。
-"""
 import argparse
 from collections import Counter
 import hashlib

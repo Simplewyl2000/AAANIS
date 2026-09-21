@@ -1,9 +1,0 @@
-{
-  "schema_version": 1,
-  "purpose": "Optional application-neutral required commands. Empty by default.",
-  "apps": {},
-  "generation_defaults": {
-    "generation_route": "single_session_operation",
-    "persistence_check": "Execute, save, reopen, and verify through an independent observation."
-  }
-}

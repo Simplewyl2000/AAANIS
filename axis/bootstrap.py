@@ -273,17 +273,17 @@ def main() -> int:
         if not args.no_monitor:
             current_step = "observatory"
             report_progress(run_dir, current_step, "running",
-                            "正在启动只读观测服务")
+                            "Starting read-only monitoring service")
             url, _ = start_observatory(run_dir, args.monitor_port)
             report_progress(run_dir, current_step, "completed", url)
-            print(f"[bootstrap] 可观测界面：{url}", flush=True)
+            print(f"[bootstrap] Monitor: {url}", flush=True)
         current_step = "intent"
         report_progress(run_dir, current_step, "running",
-                        "自然语言理解 Agent 正在识别目标软件和任务")
+                        "Request interpretation Agent is identifying the application and task")
         intent = interpret_request(request, config, run_dir)
         report_progress(
             run_dir, current_step, "completed",
-            f"识别为 {intent.get('display_name') or intent.get('status')}")
+            f"Identified as {intent.get('display_name') or intent.get('status')}")
         if intent["status"] != "ready":
             print(json.dumps({"intent": intent, "run_dir": str(run_dir)},
                              ensure_ascii=False, indent=2))
@@ -292,7 +292,7 @@ def main() -> int:
             return 3
         current_step = "entry"
         report_progress(run_dir, current_step, "running",
-                        f"入口发现 Agent 正在调查 {intent['display_name']}")
+                        f"Entrypoint discovery Agent is investigating {intent['display_name']}")
         result, run_dir = discover(intent["app"], config, run_dir)
     except (BootstrapError, system_config.ConfigError) as error:
         if run_dir is not None:
@@ -301,28 +301,28 @@ def main() -> int:
         return 2
     report_progress(
         run_dir, "entry", "completed",
-        (f"入口已确认：{result['launch_command']}" if result["status"] == "found"
-         else f"入口调查结束：{result['status']}"))
+        (f"Entrypoint confirmed: {result['launch_command']}" if result["status"] == "found"
+         else f"Entrypoint discovery finished: {result['status']}"))
     print(json.dumps({"intent": intent, "entry": result,
                       "run_dir": str(run_dir)},
                      ensure_ascii=False, indent=2))
     if result["status"] != "found":
         report_progress(run_dir, "handoff", "skipped",
-                        "没有经过验证的入口，未启动正式 AXIS")
+                        "No verified entrypoint; did not start AXIS")
         print(
             f"[bootstrap] did not start AXIS because status={result['status']}; "
             f"evidence is preserved in {run_dir}", file=sys.stderr)
         return 3
     if args.discover_only:
         report_progress(run_dir, "handoff", "skipped",
-                        "用户选择只调查入口")
+                        "Discovery-only mode selected")
         return 0
     current_step = "handoff"
     command = downstream_command(
         intent["app"], result["launch_command"],
         config["_path"], args.fresh)
     report_progress(run_dir, current_step, "running",
-                    "Python 正在启动正式四阶段 AXIS 控制器")
+                    "Python is starting the four-stage AXIS controller")
     process = subprocess.Popen(command, cwd=ROOT)
     handoff = {"pid": process.pid, "status": "running", "command": command,
                "started_at": dt.datetime.now().astimezone().isoformat()}
@@ -330,7 +330,7 @@ def main() -> int:
         json.dumps(handoff, indent=2, ensure_ascii=False) + "\n",
         encoding="utf-8")
     report_progress(run_dir, current_step, "completed",
-                    f"正式 AXIS 已启动，PID {process.pid}")
+                    f"main AXIS started; PID {process.pid}")
     return_code = process.wait()
     handoff.update({"status": "completed" if return_code == 0 else "failed",
                     "return_code": return_code,

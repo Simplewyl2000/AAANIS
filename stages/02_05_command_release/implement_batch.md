@@ -18,16 +18,15 @@ Rules:
 2. Read the complete structured census record in `assigned.record` and the
    current app census. Determine the exact runtime call and only the parameters
    needed by the public command. Perform a minimal real call while implementing;
-   do not assume Stage 1 already proved it and do not import files from
-   `experiments/` at runtime.
-3. The command must be general. Never hard-code a DeskBench task ID, fixture
+   verify it against the installed application and keep runtime dependencies
+   inside the application package.
+3. The command must be general. Never hard-code an evaluation task ID, fixture
    path, task-specific value, row count, object name, or expected answer.
 4. Add one atlas JSON file per command under `apps/<app_dir>/atlas/`. Use the
    existing atlas schema and a stable engine binding.
    **Never write to `apps/<app_dir>/census/raw_ops.json`.** That file is owned by
    the census script and is overwritten wholesale on every rerun; symbols added
-   there by hand vanish the next time census runs (this actually happened on
-   2026-08-07 and silently broke the provenance of 28 released commands).
+   there by hand vanish the next time census runs.
    If the capability you implemented is genuinely absent from the census, record
    it in `apps/<app_dir>/census/attested.json` with `symbol`, a `reason` stating
    why automatic enumeration missed it, a `gap_class`, and — when the capability
@@ -110,21 +109,18 @@ Rules:
    failures on the next attempt.
    Verification must implement the supplied `persistence_check`, including a
    saved/reopened file for persistent editing commands.
-   Every direct GUI or Inkscape subprocess used while investigating must have
+   Every direct target-application subprocess used while investigating must have
    a 60-second timeout (for example, `timeout 60s ...`). If it times out, kill
    that process tree and treat that experiment as failed; never leave a GUI,
    Xvfb, or shell process waiting in the background.
 10. Preserve all existing commands and behavior. Do not modify another app or
     shared files under `axis/`.
-11. For a `required_release_command`, first inspect the existing atlas and
-    engine implementation when present. Reuse a verified implementation instead
-    of replacing it. The command must remain discoverable by ordinary English
-    task words in its name or summary.
-12. A command is not complete merely because its in-memory property changed.
-    Persistent Office edits must be saved and reopened. Narrow DOCX/PPTX edits
-    should preserve unrelated package parts. Multi-step GIMP operations must
-    resolve their target layer and finish inside one GIMP session.
-13. Do not silently drop a required command because its generic demo fixture is
+11. Reuse verified application implementations where available. Commands must
+    remain discoverable by ordinary English words in their names or summaries.
+12. Persistent edits must be saved and reopened, preserving unrelated document
+    content. Multi-step operations must resolve their targets and complete
+    within one application session when runtime handles are session-local.
+13. Do not silently drop a assigned command because its generic demo fixture is
     inconvenient. Create a deterministic app-level fixture, then make the
     command pass the same external verification and repeat-execution checks as
     every other released command.
@@ -132,3 +128,5 @@ Rules:
 At the end, print a compact table with each operation, command, and implementation
 status. Mark verification as pending controller validation; only the controller
 may change it to passed after invoking the command through AXIS CLI.
+
+Write generated documentation, messages, and metadata in English.

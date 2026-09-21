@@ -1,9 +1,3 @@
-"""AXIS 命令外部验证栈。
-
-每条写命令只执行动作并报告，不再自行读取前态、计算计划、读取后态。本脚本在
-命令外部重造演示文件、运行命令，再通过 getter、observe 或引擎的只读测量接口
-检查真实文件。结构、防幻觉、坏参数三道检查继续保留；旧 dry-run 检查已删除。
-"""
 import argparse
 import importlib.util
 import json
@@ -25,7 +19,6 @@ RUN_TIMEOUT = 300
 
 
 def cli(app_dir, argv, timeout=RUN_TIMEOUT):
-    """跑一次与冻结产物等价的命令行调用，返回退出码和 JSON。"""
     env = dict(os.environ)
     env["PYTHONPATH"] = _ROOT + os.pathsep + app_dir
     r = subprocess.run([sys.executable, os.path.join(_ROOT, "axis", "cli.py"),
@@ -40,7 +33,6 @@ def cli(app_dir, argv, timeout=RUN_TIMEOUT):
 
 
 def load_engine(app, app_dir):
-    """以独立模块名加载当前软件引擎，避免多软件模块名相撞。"""
     path = os.path.join(app_dir, "engine.py")
     spec = importlib.util.spec_from_file_location(f"axis_verify_engine_{app}", path)
     mod = importlib.util.module_from_spec(spec)
@@ -49,13 +41,6 @@ def load_engine(app, app_dir):
 
 
 def census_symbols(app):
-    """把 census 的嵌套通道摊平成 {通道路径: 符号集合}。
-
-    人工确认的能力放在 census/attested.json，单独摊进 "attested" 通道。
-    两个来源严格分开：raw_ops.json 只许普查脚本写、重跑整体覆盖；
-    attested.json 由人维护、普查重跑不受影响。过去把人工符号混写进
-    raw_ops.json 的自造通道里，普查一重跑就把 28 条命令的来源冲掉了。
-    """
     path = os.path.join(_ROOT, "apps", app, "census", "raw_ops.json")
     d = json.load(open(path, encoding="utf-8"))
     out = {}
@@ -85,15 +70,14 @@ def census_symbols(app):
             for pool in out.values() if symbol in pool and pool is not out["attested"])
         if smuggled:
             raise SystemExit(
-                f"[verify] {app}: 以下人工确认的符号同时出现在自动普查产物里："
+                f"[verify] {app}: Manually attested symbols also appear in the automated census: "
                 f"{smuggled[:5]}\n"
-                "        普查产物只许普查脚本写入。人工确认的能力放 attested.json，"
-                "不许混进 raw_ops.json——混进去就分不清哪些能力是软件自报的。")
+                "        Only the census script may write census output. Put attested capabilities in attested.json, "
+                "instead of raw_ops.jsonto preserve the distinction from runtime-reported capabilities.")
     return out
 
 
 def attested_symbols(app):
-    """读人工确认的能力清单。返回 {符号: 那条记录}。"""
     path = os.path.join(_ROOT, "apps", app, "census", "attested.json")
     if not os.path.isfile(path):
         return {}
@@ -105,8 +89,8 @@ def attested_symbols(app):
             continue
         if not str(entry.get("reason", "")).strip():
             raise SystemExit(
-                f"[verify] {app}: attested.json 里 {symbol!r} 没写 reason。"
-                "每条人工确认的能力都必须说明为什么自动普查覆盖不到它。")
+                f"[verify] {app}: attested.json in {symbol!r} missing reason."
+                "Each attested capability must explain why automated census cannot cover it.")
         out[symbol] = entry
     return out
 
@@ -115,7 +99,7 @@ def gate_structure(cmd_dir, spec, app_dir):
     missing = [k for k in ("command", "summary", "args", "errors", "demo")
                if k not in spec]
     if missing:
-        return False, f"spec 缺字段 {missing}"
+        return False, f"spec Missing field {missing}"
     for p in (_ROOT, app_dir):
         if p not in sys.path:
             sys.path.insert(0, p)
@@ -123,39 +107,33 @@ def gate_structure(cmd_dir, spec, app_dir):
     try:
         kernel.load_impl(cmd_dir)
     except Exception as e:
-        return False, f"impl 加载失败：{e}"
-    return True, "spec 齐全，单一 run() 可加载"
+        return False, f"impl Loading failed: {e}"
+    return True, "spec complete; single run() is loadable"
 
 
 def gate_hallucination(spec, symbols):
-    """命令引用的能力符号必须真实存在。
-
-    两个来源都接受，但必须分得清：自动普查的产物，或者 attested.json 里
-    人工确认并写明原因的。后者在报告里明确标出来，发布时分开报数。
-    """
     ref = spec.get("census_ref")
     if not ref:
-        return False, "缺 census_ref（命令必须可追溯到普查条目）"
+        return False, "Missing census_ref(commands must trace to census entries)"
 
     pool = symbols.get(ref["channel"], set())
     if ref["symbol"] in pool:
         if ref["channel"] == "attested":
-            return True, (f"{ref['symbol']} 来自人工确认清单 attested.json，"
-                          "不是软件自动普查的产物")
+            return True, (f"{ref['symbol']} comes from the attestation list attested.json, "
+                          "is not an automated census result")
         return True, f"{ref['symbol']} ∈ {ref['channel']}"
 
-    # 通道名对不上，但符号本身在人工确认清单里——按人工确认放行并标注。
-    if ref["symbol"] in symbols.get("attested", set()):
-        return True, (f"{ref['symbol']} 来自人工确认清单 attested.json"
-                      f"（档案里记的通道 {ref['channel']!r} 已不存在，"
-                      "应把 census_ref.channel 改成 \"attested\"）")
 
-    return False, (f"{ref['symbol']} 不在 census 通道 {ref['channel']}"
-                   f"（{len(pool)} 条）内，也不在人工确认清单里")
+    if ref["symbol"] in symbols.get("attested", set()):
+        return True, (f"{ref['symbol']} comes from the attestation list attested.json"
+                      f"(recorded channel {ref['channel']!r} no longer exists; "
+                      "change census_ref.channel to \"attested\")")
+
+    return False, (f"{ref['symbol']} is not in census channel {ref['channel']}"
+                   f"({len(pool)} entries) or the attestation list")
 
 
 def values_match(cur, expect):
-    """递归比较状态；浮点数允许千分之一相对误差。"""
     if isinstance(expect, bool) or isinstance(cur, bool):
         return cur == expect
     if isinstance(expect, (int, float)) and isinstance(cur, (int, float)):
@@ -179,8 +157,8 @@ def make_demo(app_dir, spec, demo):
         if code == 0:
             break
     if code != 0:
-        return False, f"make-demo 连续两次失败：{out.get('message')}"
-    return True, "演示文件已创建"
+        return False, f"make-demo Failed twice consecutively: {out.get('message')}"
+    return True, "Demo file created"
 
 
 def command_argv(spec, demo):
@@ -205,23 +183,23 @@ def _content_digest(path, adapter=None):
 
 def check_verb(app, app_dir, spec, demo, run_report, before_digest=None,
                adapter=None):
-    """用 observe 或动作报告检查动作命令的实际文件结果。"""
+
     code, observed = cli(app_dir, ["observe", "--file", demo])
     if code != 0:
-        return False, f"observe 失败：{observed.get('message')}"
+        return False, f"observe Failed: {observed.get('message')}"
     state = observed["state"]
     expect = spec["demo"]["expect"]
     if expect.get("content_changed"):
         if before_digest is None or _content_digest(demo, adapter) == before_digest:
-            return False, "保存重开后文件内容与执行前相同"
+            return False, "File contents unchanged after saving and reopening"
     if "state" in expect:
         actual = json.loads(json.dumps(state))
         actual.pop("file", None)
         if not values_match(actual, expect["state"]):
-            return False, "重开文件后的结构化状态与动作探针冻结状态不一致"
+            return False, "Reopened state differs from the frozen action probe state"
     if "content_fingerprint" in expect:
         if _content_digest(demo, adapter) != expect["content_fingerprint"]:
-            return False, "重开文件后的持久内容指纹与动作探针证据不一致"
+            return False, "Reopened content digest differs from action probe evidence"
     if "action_state" in expect:
         engine = load_engine(app, app_dir)
         actual = engine.action_state({"file": demo}, spec["binding"])["current"]
@@ -231,12 +209,12 @@ def check_verb(app, app_dir, spec, demo, run_report, before_digest=None,
             actual, wanted = adapter.normalize_action_state(
                 spec, actual, wanted)
         if not values_match(actual, wanted):
-            return False, "重开文件后的算子状态与冻结探针状态不一致"
+            return False, "Reopened operation state differs from the frozen probe state"
     if "output_exists" in expect:
         output = run_report.get("output")
         if not output or not os.path.isfile(output):
-            return False, f"动作没有生成输出文件：{output!r}"
-        return True, f"确认输出文件已生成：{output}"
+            return False, f"Action did not produce an output file: {output!r}"
+        return True, f"Output file exists: {output}"
     if adapter is not None and hasattr(adapter, "check_verb_expectation"):
         return adapter.check_verb_expectation(
             spec, state, run_report, expect, demo)
@@ -244,14 +222,13 @@ def check_verb(app, app_dir, spec, demo, run_report, before_digest=None,
 
 
 def external_state(app, app_dir, spec, demo, engine, contract):
-    """在写命令之外读取当前状态，返回可与冻结期望比较的值。"""
     kind = spec["binding"]["kind"]
     getter = (spec.get("related") or {}).get("read_current")
     if getter:
         code, out = cli(
             app_dir, getter_argv(getter, spec, demo, contract))
         if code != 0:
-            raise RuntimeError(f"getter {getter} 失败：{out.get('message')}")
+            raise RuntimeError(f"getter {getter} Failed: {out.get('message')}")
         return out.get("current")
     args = {"file": demo}
     args.update(spec["demo"]["args"])
@@ -262,7 +239,7 @@ def external_state(app, app_dir, spec, demo, engine, contract):
     if kind in contract["build"].get("selector_args", {}):
         from axis import proptemplate
         return proptemplate.get(args, spec["binding"], engine)["current"]
-    raise RuntimeError(f"没有为 {app}/{kind} 定义外部观测")
+    raise RuntimeError(f"No {app}/{kind} external observation is defined")
 
 
 def gate_recipe(app, app_dir, spec, tmp, engine, contract, adapter):
@@ -274,23 +251,23 @@ def gate_recipe(app, app_dir, spec, tmp, engine, contract, adapter):
         argv = [part.replace("{file}", demo) for part in shlex.split(setup)]
         code, out = cli(app_dir, argv)
         if code != 0:
-            return False, (f"动作前置命令失败：{setup}："
+            return False, (f"Action prerequisite command failed: {setup}: "
                            f"{out.get('message')}"), demo
 
-    # getter 自己的配方：先用成对 setter 写值，再单独读取。
+
     if spec.get("paired_setter"):
         setter_dir = os.path.join(app_dir, "commands", spec["paired_setter"])
         setter_spec = json.load(open(os.path.join(setter_dir, "spec.json"),
                                      encoding="utf-8"))
         code, out = cli(app_dir, command_argv(setter_spec, demo))
         if code != 0:
-            return False, f"配对 setter 失败：{out.get('message')}", demo
+            return False, f"paired setter Failed: {out.get('message')}", demo
         code, got = cli(app_dir, getter_argv(
             spec["command"], setter_spec, demo, contract))
         if code != 0 or not values_match(got.get("current"), spec["demo"]["expect"]):
-            return False, (f"getter 读到 {got.get('current')!r}，"
-                           f"期望 {spec['demo']['expect']!r}"), demo
-        return True, "先写后读，getter 返回当前真实值", demo
+            return False, (f"getter read {got.get('current')!r}, "
+                           f"expected {spec['demo']['expect']!r}"), demo
+        return True, "Write followed by read; getter returns the actual current value", demo
 
     demo_expect = spec["demo"].get("expect")
     before_digest = (
@@ -303,20 +280,20 @@ def gate_recipe(app, app_dir, spec, tmp, engine, contract, adapter):
         if spec["binding"]["kind"] == "observation" else None)
     code, run1 = cli(app_dir, argv)
     if code != 0 or run1.get("status") != "ok":
-        return False, f"命令执行失败：{run1.get('code')} {run1.get('message')}", demo
+        return False, f"Command failed: {run1.get('code')} {run1.get('message')}", demo
 
     kind = spec["binding"]["kind"]
     if kind == "observation":
         expected = spec["demo"]["expect"]
         if not values_match(run1.get("current"), expected):
-            return False, (f"只读观测值 {run1.get('current')!r}，"
-                           f"期望 {expected!r}"), demo
+            return False, (f"Read-only observation {run1.get('current')!r}, "
+                           f"expected {expected!r}"), demo
         code, run2 = cli(app_dir, argv)
         if code != 0 or not values_match(run2.get("current"), expected):
-            return False, "第二次只读观测不稳定", demo
+            return False, "Second read-only observation is unstable", demo
         if _content_digest(demo, adapter) != observation_digest:
-            return False, "只读观测改变了输入文件", demo
-        return True, "只读观测与冻结期望一致，连续读取稳定", demo
+            return False, "Read-only observation modified the input file", demo
+        return True, "Read-only observations match frozen expectations and remain stable", demo
     if kind == "verb":
         ok, detail = check_verb(
             app, app_dir, spec, demo, run1, before_digest=before_digest,
@@ -327,45 +304,45 @@ def gate_recipe(app, app_dir, spec, tmp, engine, contract, adapter):
             os.remove(demo)
             ok, msg = make_demo(app_dir, spec, demo)
             if not ok:
-                return False, f"第二份演示文件创建失败：{msg}", demo
+                return False, f"Second demo file creation failed: {msg}", demo
             for setup in spec["demo"].get("setup_commands", []):
                 setup_argv = [
                     part.replace("{file}", demo) for part in shlex.split(setup)]
                 code, out = cli(app_dir, setup_argv)
                 if code != 0:
-                    return False, (f"第二份演示文件的前置命令失败："
+                    return False, (f"Second demo prerequisite failed: "
                                    f"{out.get('message')}"), demo
         code, run2 = cli(app_dir, argv)
         if code != 0:
-            return False, f"连续第二次执行失败：{run2.get('message')}", demo
-        repeat = ("在两份等价输入上执行均未报错"
+            return False, f"Second consecutive execution failed: {run2.get('message')}", demo
+        repeat = ("Execution succeeded on two equivalent inputs"
                   if spec["demo"].get("repeat_mode") == "fresh"
-                  else "连续执行两次均未报错")
-        return True, detail + f"；{repeat}", demo
+                  else "Two consecutive executions succeeded")
+        return True, detail + f"; {repeat}", demo
 
     try:
         cur1 = external_state(app, app_dir, spec, demo, engine, contract)
     except Exception as e:
-        return False, f"外部观测失败：{e}", demo
+        return False, f"External observation failed: {e}", demo
     expect = spec["demo"]["expect"]
     expected1 = expect["after1"] if kind == "transform" else expect
     if not values_match(cur1, expected1):
-        return False, f"外部观测值 {cur1!r}，期望 {expected1!r}", demo
+        return False, f"External observation {cur1!r}; expected {expected1!r}", demo
 
     code, run2 = cli(app_dir, argv)
     if code != 0:
-        return False, f"连续第二次执行失败：{run2.get('message')}", demo
+        return False, f"Second consecutive execution failed: {run2.get('message')}", demo
     cur2 = external_state(app, app_dir, spec, demo, engine, contract)
     expected2 = expect["after2"] if kind == "transform" else expected1
     if not values_match(cur2, expected2):
-        return False, f"第二次外部观测值 {cur2!r}，期望 {expected2!r}", demo
-    return True, "命令外部观测符合冻结期望，连续执行两次均未报错", demo
+        return False, f"Second external observation {cur2!r}; expected {expected2!r}", demo
+    return True, "External observations match frozen expectations across two successful executions", demo
 
 
 def gate_badargs(app_dir, spec, demo):
     code, _ = cli(app_dir, [spec["command"], "--file", demo, "--bogus", "1"])
     if code != 2:
-        return False, f"未知参数退出码 {code}（应为 2）"
+        return False, f"Unknown argument exit code {code}(expected 2)"
     required = [k for k, a in spec["args"].items()
                 if a.get("required") and k != "file"]
     if required:
@@ -375,8 +352,8 @@ def gate_badargs(app_dir, spec, demo):
                 argv += [f"--{k}", str(v)]
         code, _ = cli(app_dir, argv)
         if code != 2:
-            return False, f"缺必填 --{required[0]} 退出码 {code}（应为 2）"
-    return True, "未知参数和缺少必填参数均以退出码 2 拒绝"
+            return False, f"Missing required --{required[0]} exit code {code}(expected 2)"
+    return True, "Unknown and missing required arguments both return exit code 2 rejected"
 
 
 def verify_one(app, app_dir, cmd_root, symbols, contract, adapter, name):
@@ -403,11 +380,11 @@ def verify_one(app, app_dir, cmd_root, symbols, contract, adapter, name):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="AXIS 命令外部验证栈")
+    ap = argparse.ArgumentParser(description="AXIS Command external verification")
     ap.add_argument("--app", required=True)
     ap.add_argument("--only")
     ap.add_argument("--jobs", type=int, default=1,
-                    help="并行度：各命令在独立临时目录运行")
+                    help="Parallel jobs; commands run in independent temporary directories")
     args = ap.parse_args()
     app_dir = os.path.join(_ROOT, "apps", args.app)
     contract = app_contract.load(args.app)
@@ -459,7 +436,7 @@ def main():
         report = old
     json.dump(report, open(out_path, "w"), indent=1, ensure_ascii=False)
     n_pass = sum(1 for result in report.values() if result["pass"])
-    print(f"\n[verify] {args.app}: {n_pass}/{len(report)} 全门通过 -> {out_path}")
+    print(f"\n[verify] {args.app}: {n_pass}/{len(report)} passed all checks -> {out_path}")
     # --only is a targeted repair gate.  Historical failures remain in the
     # cumulative report for visibility, but must not make an unrelated repaired
     # command fail its own gate.

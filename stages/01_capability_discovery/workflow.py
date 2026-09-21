@@ -35,8 +35,6 @@ REVIEW_SCHEMA = STAGE_DIR / "schemas" / "review_result.schema.json"
 DISCOVERY_PROMPT = STAGE_DIR / "prompts" / "discover_batch.md"
 REVIEW_PROMPT = STAGE_DIR / "prompts" / "review_batch.md"
 REVIEW_ASSIGNMENT = STAGE_DIR / "prompts" / "review_assignment.md"
-GOOD_PRACTICE = (
-    AXIS_ROOT / "experiments" / "recursive_discovery" / "REPORT.md")
 RUNS_DIR = STAGE_DIR / "runs"
 TERMINAL_DISCOVERED = {
     "executable", "equivalent", "out_of_scope", "unsupported",
@@ -50,12 +48,6 @@ class WorkflowError(RuntimeError):
 
 
 def load_config():
-    """读取全局规则，并从 apps/ 自动登记已经完成普查和账本的新软件。
-
-    历史别名来自配置文件；工作流本身不保存软件名称映射。
-    新软件不应为了进入第一阶段而修改控制器或这份旧名单；它自己的 runtime.json
-    是实现模型已经验证过的声明，目录结构则给出 census/ledger 的标准位置。
-    """
     config = copy.deepcopy(load_json(CONFIG_PATH))
     apps_root = AXIS_ROOT / "apps"
     for app_dir in sorted(apps_root.iterdir() if apps_root.is_dir() else []):
@@ -124,7 +116,7 @@ def selected_apps(config, raw):
     requested = [value.strip() for value in raw.split(",") if value.strip()]
     unknown = sorted(set(requested) - set(config["apps"]))
     if unknown:
-        raise WorkflowError(f"未知软件：{', '.join(unknown)}")
+        raise WorkflowError(f"Unknown application: {', '.join(unknown)}")
     return requested
 
 
@@ -161,21 +153,21 @@ def classify_entry(entry, config, app_root=None):
     if status in {"generated", "generated_and_verified"}:
         if app_root is not None and not existing_commands_are_materialized(
                 entry, app_root):
-            return "queue", "账本声称已经生成，但命令文件或命令记录不完整"
-        return "reuse", f"复用已有终态 {status}"
+            return "queue", "Ledger reports generation but command files or records are incomplete"
+        return "reuse", f"Reuse existing terminal result {status}"
     if status == "merged_equivalent":
         if not reason.strip():
-            return "queue", "账本声称已由等价能力覆盖，但没有记录理由"
-        return "reuse", "复用已有等价合并结论"
+            return "queue", "Ledger reports equivalent coverage without a reason"
+        return "reuse", "Reuse existing equivalence decision"
     if status == "excluded_with_reason":
         lowered = reason.lower()
         phrases = [value.lower()
                    for value in config["suspicious_exclusion_phrases"]]
         if any(phrase in lowered for phrase in phrases):
-            return "queue", "排除理由来自失败、超时或上下文不足，需要重新发现"
-        return "reuse", "复用已有范围排除及其理由"
+            return "queue", "Exclusion cites failure, timeout, or insufficient context; rediscovery required"
+        return "reuse", "Reuse existing scope exclusion and reason"
     # Unknown states are never silently accepted.
-    return "queue", f"未知或非终态 status={status!r}"
+    return "queue", f"Unknown or nonterminal state status={status!r}"
 
 
 def make_items(app, ledger, config, app_root=None):
@@ -221,7 +213,7 @@ def prepare_run(args, global_config=None):
     run_dir = RUNS_DIR / run_id
     if run_dir.exists():
         raise WorkflowError(
-            f"运行目录已存在：{run_dir}；使用 --run-dir 恢复，不要覆盖")
+            f"Run directory exists: {run_dir}; use --run-dir to resume instead of overwriting")
     run_dir.mkdir(parents=True)
     inputs = {
         "run_id": run_id,
@@ -252,7 +244,7 @@ def prepare_run(args, global_config=None):
         ledger_path = AXIS_ROOT / app_config["existing_ledger"]
         for path in (census, ledger_path):
             if not path.is_file():
-                raise WorkflowError(f"缺少第一阶段输入：{path}")
+                raise WorkflowError(f"Missing discovery input: {path}")
         ledger = load_json(ledger_path)
         app_root = AXIS_ROOT / "apps" / app_config["app_dir"]
         items = make_items(app, ledger, config, app_root)
@@ -309,7 +301,7 @@ def prepare_run(args, global_config=None):
 def load_run(run_dir):
     run_dir = Path(run_dir).resolve()
     if not (run_dir / "inputs.json").is_file():
-        raise WorkflowError(f"不是有效的第一阶段运行目录：{run_dir}")
+        raise WorkflowError(f"Invalid discovery run directory: {run_dir}")
     return run_dir, load_json(run_dir / "inputs.json"), load_json(
         run_dir / "state.json")
 
@@ -336,7 +328,7 @@ def verify_frozen_inputs(inputs):
                 problems.append(f"{app}:{path}")
     if problems:
         raise WorkflowError(
-            "准备后输入发生变化，不能把两个版本混入同一次运行："
+            "Inputs changed after preparation; cannot combine versions in one run: "
             + ", ".join(problems))
 
 
@@ -371,7 +363,7 @@ def render_prompt(path, values):
     leftovers = [part.split("}}", 1)[0]
                  for part in text.split("{{")[1:] if "}}" in part]
     if leftovers:
-        raise WorkflowError(f"Prompt 仍有未替换变量：{leftovers}")
+        raise WorkflowError(f"Prompt Unresolved template variables: {leftovers}")
     return text
 
 
@@ -423,13 +415,13 @@ def invoke_codex(prompt, work_dir, schema, output, events, stderr,
                 preexec_fn=disable_core_dumps)
         except subprocess.TimeoutExpired as exc:
             raise WorkflowError(
-                f"Codex 子任务超时（{timeout}s）：{work_dir}") from exc
+                f"Codex Worker timed out ({timeout}s): {work_dir}") from exc
     if result.returncode != 0:
         tail = stderr.read_text(encoding="utf-8", errors="replace")[-1200:]
         raise WorkflowError(
-            f"Codex 子任务失败（exit={result.returncode}）：{tail}")
+            f"Codex Worker failed (exit={result.returncode}): {tail}")
     if not output.is_file():
-        raise WorkflowError(f"Codex 没有生成结构化结果：{output}")
+        raise WorkflowError(f"Codex No structured output: {output}")
 
 
 def run_assigned_review(batch, result_path, attempt_dir, model_override,
@@ -451,12 +443,11 @@ def run_assigned_review(batch, result_path, attempt_dir, model_override,
         review_config["timeout_seconds"],
         sandbox=review_config["sandbox"], executable=agent["command"])
     review = load_json(review_path)
-    validate_result_envelope(batch, review, "复核结果")
+    validate_result_envelope(batch, review, "Review result")
     return review
 
 
 def disable_core_dumps():
-    """调查动作崩溃时保留日志，但不写数十 MB 的进程内存转储。"""
     resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
 
 
@@ -464,12 +455,12 @@ def exact_ids(batch, report):
     expected = [item["item_id"] for item in batch["items"]]
     actual = [item.get("item_id") for item in report.get("items", [])]
     if len(actual) != len(set(actual)):
-        raise WorkflowError("Codex 结果包含重复 item_id")
+        raise WorkflowError("Codex Result contains duplicate item_id")
     if set(actual) != set(expected):
         missing = sorted(set(expected) - set(actual))
         extra = sorted(set(actual) - set(expected))
         raise WorkflowError(
-            f"Codex 结果未覆盖精确任务集；missing={missing}, extra={extra}")
+            f"Codex Result does not cover the exact assigned items; missing={missing}, extra={extra}")
 
 
 def safe_evidence_path(attempt_dir, raw):
@@ -477,30 +468,30 @@ def safe_evidence_path(attempt_dir, raw):
     try:
         candidate.relative_to(attempt_dir.resolve())
     except ValueError as exc:
-        raise WorkflowError(f"证据路径越出批次目录：{raw}") from exc
+        raise WorkflowError(f"Evidence path escapes batch directory: {raw}") from exc
     if not candidate.is_file():
-        raise WorkflowError(f"证据文件不存在：{raw}")
+        raise WorkflowError(f"Evidence file does not exist: {raw}")
     return candidate
 
 
 def validate_discovery(batch, report, attempt_dir, max_attempts):
-    validate_result_envelope(batch, report, "调查结果")
+    validate_result_envelope(batch, report, "Discovery result")
     problems = discovery_item_errors(
         batch, report, attempt_dir, max_attempts)
     if problems:
-        raise WorkflowError("；".join(
-            f"{item_id}：{reason}" for item_id, reason in problems.items()
+        raise WorkflowError("; ".join(
+            f"{item_id}: {reason}" for item_id, reason in problems.items()
         )[:8000])
 
 
 def validate_result_envelope(batch, report, label):
     """Validate only batch-wide identity; item completeness is item-scoped."""
     if report.get("batch_id") != batch["batch_id"]:
-        raise WorkflowError(f"{label} batch_id 不匹配")
+        raise WorkflowError(f"{label} batch_id does not match")
     if report.get("app") != batch["app"]:
-        raise WorkflowError(f"{label} app 不匹配")
+        raise WorkflowError(f"{label} app does not match")
     if not isinstance(report.get("items"), list):
-        raise WorkflowError(f"{label} items 不是列表")
+        raise WorkflowError(f"{label} items is not a list")
 
 
 def discovery_item_errors(batch, report, attempt_dir, max_attempts):
@@ -515,42 +506,42 @@ def discovery_item_errors(batch, report, attempt_dir, max_attempts):
     extras = sorted(
         str(item_id) for item_id in grouped if item_id not in expected)
     if extras:
-        raise WorkflowError(f"调查结果包含批次外 item_id：{extras}")
+        raise WorkflowError(f"Discovery result includes unassigned item_id: {extras}")
     for item_id in expected:
         matches = grouped.get(item_id, [])
         if not matches:
-            problems[item_id] = "调查结果缺少此项目"
+            problems[item_id] = "Discovery result is missing this item"
             continue
         if len(matches) > 1:
-            problems[item_id] = "调查结果重复提交此项目"
+            problems[item_id] = "Discovery result repeats this item"
             continue
         item = matches[0]
         item_problems = []
         if not isinstance(item, dict):
-            problems[item_id] = "调查项目不是对象"
+            problems[item_id] = "Discovery item is not an object"
             continue
         disposition = item.get("disposition")
         if not isinstance(disposition, str) or not disposition:
-            problems[item_id] = "调查项目缺少 disposition"
+            problems[item_id] = "Discovery item is missing disposition"
             continue
         attempts = item.get("attempts", [])
         evidence = item.get("evidence", [])
         if not isinstance(attempts, list):
-            problems[item_id] = "attempts 不是列表"
+            problems[item_id] = "attempts is not a list"
             continue
         if not isinstance(evidence, list):
-            problems[item_id] = "evidence 不是列表"
+            problems[item_id] = "evidence is not a list"
             continue
         if len(attempts) > max_attempts:
             item_problems.append(
-                f"尝试数 {len(attempts)} > {max_attempts}")
+                f"Attempt count {len(attempts)} > {max_attempts}")
         if not attempts:
-            item_problems.append("没有记录真实尝试")
+            item_problems.append("No actual attempts recorded")
         if disposition in TERMINAL_DISCOVERED and not evidence:
-            item_problems.append("终态没有证据")
+            item_problems.append("Terminal state has no evidence")
         for record in evidence:
             if not isinstance(record, dict) or not record.get("path"):
-                item_problems.append("证据记录缺少路径")
+                item_problems.append("Evidence record is missing a path")
                 continue
             try:
                 safe_evidence_path(attempt_dir, record["path"])
@@ -560,42 +551,42 @@ def discovery_item_errors(batch, report, attempt_dir, max_attempts):
             if not any(
                     isinstance(value, dict) and value.get("exit_code") == 0
                     for value in attempts):
-                item_problems.append("没有成功运行记录")
+                item_problems.append("No successful execution recorded")
             if not item.get("command_candidates"):
-                item_problems.append("没有完整命令候选清单")
+                item_problems.append("Missing complete command candidate list")
             for parameter in item.get("parameters", []):
                 if not isinstance(parameter, dict):
-                    item_problems.append("参数记录不是对象")
+                    item_problems.append("Parameter record is not an object")
                     continue
                 if not parameter.get("value_kind"):
                     item_problems.append(
-                        f"参数 {parameter.get('name')} 没有机器可读 value_kind")
+                        f"Argument {parameter.get('name')} Missing machine-readable value_kind")
                 if (parameter.get("value_kind") == "object_reference"
                         and not parameter.get("target_type")):
                     item_problems.append(
-                        f"对象引用参数 {parameter.get('name')} 没有 target_type")
+                        f"object reference parameter {parameter.get('name')} Missing target_type")
             for candidate in item.get("command_candidates", []):
                 if not isinstance(candidate, dict):
-                    item_problems.append("命令候选不是对象")
+                    item_problems.append("Command candidate is not an object")
                     continue
                 if not candidate.get("implementation_route"):
                     item_problems.append(
-                        f"候选 {candidate.get('name')} 没有 implementation_route")
+                        f"Candidates {candidate.get('name')} Missing implementation_route")
                 if not candidate.get("persistence_check"):
                     item_problems.append(
-                        f"候选 {candidate.get('name')} 没有 persistence_check")
+                        f"Candidates {candidate.get('name')} Missing persistence_check")
         if disposition == "equivalent" and not item.get(
                 "equivalent_commands"):
-            item_problems.append("没有等价命令清单")
+            item_problems.append("Missing equivalent command list")
         if disposition == "unsupported" and len(attempts) < 2:
-            item_problems.append("只有一次尝试，不能证明运行时不支持")
+            item_problems.append("One attempt cannot establish runtime non-support")
         if item_problems:
-            problems[item_id] = "；".join(item_problems)
+            problems[item_id] = "; ".join(item_problems)
     return problems
 
 
 def validate_review(batch, review):
-    validate_result_envelope(batch, review, "复核结果")
+    validate_result_envelope(batch, review, "Review result")
     exact_ids(batch, review)
 
 
@@ -610,17 +601,17 @@ def review_item_errors(batch, review):
     extras = sorted(
         str(item_id) for item_id in grouped if item_id not in expected)
     if extras:
-        raise WorkflowError(f"复核结果包含批次外 item_id：{extras}")
+        raise WorkflowError(f"Review includes unassigned item_id: {extras}")
     errors = {}
     verdicts = {}
     for item_id in expected:
         matches = grouped.get(item_id, [])
         if not matches:
-            errors[item_id] = "复核结果缺少此项目"
+            errors[item_id] = "Review is missing this item"
         elif len(matches) > 1:
-            errors[item_id] = "复核结果重复提交此项目"
+            errors[item_id] = "Review repeats this item"
         elif matches[0].get("decision") not in {"expose", "skip"}:
-            errors[item_id] = "语义过滤结果缺少合法 decision"
+            errors[item_id] = "Semantic filtering result lacks a valid decision"
         else:
             verdicts[item_id] = matches[0]
     return verdicts, errors
@@ -633,7 +624,6 @@ def batch_prompt_values(batch, attempt_dir, config):
         "AXIS_ROOT": AXIS_ROOT,
         "CENSUS_PATH": AXIS_ROOT / app_config["existing_census"],
         "LEDGER_PATH": AXIS_ROOT / app_config["existing_ledger"],
-        "GOOD_PRACTICE_PATH": GOOD_PRACTICE,
         "RUNTIME_FAMILY": batch["runtime_family"],
         "MAX_ATTEMPTS": config["max_attempts_per_item"],
     }
@@ -707,16 +697,16 @@ def migrate_legacy_batch(run_dir, batch_state):
                     "error": "",
                 })
             elif verdict.get("verdict") != "accept":
-                last_error[item_id] = verdict.get("reason", "复核未通过")
+                last_error[item_id] = verdict.get("reason", "Review failed")
             elif discovered.get("disposition") == "blocked":
                 last_error[item_id] = discovered.get(
-                    "reason", "当前环境无法完成")
+                    "reason", "Cannot complete in the current environment")
     for item_id, state in states.items():
         if state["status"] == "accepted":
             continue
         state["attempts"] = min(reviewed[item_id], ITEM_ATTEMPT_LIMIT)
         state["error"] = last_error[item_id] or batch_state.get(
-            "error", "尚未取得独立复核结果")
+            "error", "Independent review pending")
         if state["attempts"] >= ITEM_ATTEMPT_LIMIT:
             state["status"] = "unfinished"
     batch_state["items"] = states
@@ -761,7 +751,7 @@ def investigate_batch(run_dir, batch_state, args, config, global_config,
         except (WorkflowError, json.JSONDecodeError, KeyError) as exc:
             review_by_id = {}
             review_errors = {
-                item["item_id"]: f"语义过滤任务失败：{exc}"
+                item["item_id"]: f"Semantic filtering task failed: {exc}"
                 for item in active
             }
             atomic_json(attempt_dir / "controller_error.json", {
@@ -822,13 +812,13 @@ def run_pending(run_dir, args):
     if migrated:
         adopt_current_controller(
             run_dir, inputs,
-            "从整批验收迁移为逐项锁定；单项最多尝试两次")
+            "Migrate batch validation to per-item acceptance; at most two attempts per item")
         save_state(run_dir, state)
     verify_frozen_inputs(inputs)
     config = load_config()
     global_config = system_config.load(args.config or inputs.get("global_config"))
-    # Ctrl-C、机器重启或外部终止可能把当前批次留在 running。恢复时不能覆盖
-    # 已有 attempt 目录，也不能丢掉独立复核给出的修复意见。
+
+
     recovered = False
     for batch in state["batches"]:
         if batch.get("status") != "running":
@@ -922,7 +912,7 @@ def accepted_results(run_dir, state):
                 report = load_json(attempt / "review_result.json")
                 item = item_result(report, item_id)
                 if item is None:
-                    raise WorkflowError(f"语义过滤结果缺少项目：{item_id}")
+                    raise WorkflowError(f"Semantic filtering result is missing items: {item_id}")
                 results[item_id] = {
                     **item,
                     "batch_id": batch["batch_id"],
@@ -981,7 +971,7 @@ def verify_run(run_dir):
                         }
                         summary["missing"] += 1
                         gate_errors.append(
-                            f"{item['item_id']} 尚未达到接受或未完成终态")
+                            f"{item['item_id']} Not yet in an accepted or unfinished terminal state")
                 else:
                     decision = result["decision"]
                     record = {
@@ -1010,10 +1000,10 @@ def verify_run(run_dir):
         "items": unfinished_commands,
     })
     lines = [
-        "# AXIS 第一阶段能力发现报告", "",
-        f"- 运行：`{inputs['run_id']}`",
-        f"- 完成门：{'通过' if not gate_errors else '未通过'}", "",
-        "| 软件 | 总项目 | 复用已有结果 | 批准公开 | 过滤跳过 | 未完成 | 缺失 |",
+        "# AXIS Capability discovery report", "",
+        f"- Run: `{inputs['run_id']}`",
+        f"- Completion check: {'passed' if not gate_errors else 'failed'}", "",
+        "| Application | Total items | Reused results | Approved for exposure | Filtered out | Unfinished | Missing |",
         "|---|---:|---:|---:|---:|---:|---:|",
     ]
     for app, summary in app_reports.items():
@@ -1024,17 +1014,17 @@ def verify_run(run_dir):
             f"{summary['missing']} |")
     if unfinished_commands:
         lines.extend([
-            "", "## 两次尝试后仍未完成的命令", "",
-            "这些项目已经终结，不会阻塞其余命令，也不会自动重试。",
-            "详细机器可读记录见 `unfinished_commands.json`。", "",
+            "", "## Commands unfinished after two attempts", "",
+            "These terminal items do not block other commands and will not be retried automatically.",
+            "Detailed machine-readable records: `unfinished_commands.json`.", "",
         ])
         lines.extend(
-            f"- {item['item_id']} `{item['symbol']}`：{item['reason']}"
+            f"- {item['item_id']} `{item['symbol']}`: {item['reason']}"
             for item in unfinished_commands[:200])
     if gate_errors:
         lines.extend([
             "",
-            f"## 尚未完成（共 {len(gate_errors)} 项，下面只列前 200 项）",
+            f"## Unfinished (total: {len(gate_errors)} items; showing first 200 items)",
             "",
         ])
         lines.extend(f"- {error}" for error in gate_errors[:200])
@@ -1066,15 +1056,15 @@ def print_status(run_dir):
 
 def parser():
     root = argparse.ArgumentParser(
-        description="AXIS 第一阶段：确定性能力发现工作流")
+        description="AXIS Deterministic capability discovery workflow")
     sub = root.add_subparsers(dest="command", required=True)
-    prepare = sub.add_parser("prepare", help="冻结输入并生成完整任务队列")
+    prepare = sub.add_parser("prepare", help="Freeze inputs and create the complete task queue")
     prepare.add_argument("--apps", default="all")
     prepare.add_argument("--run-id")
     prepare.add_argument("--batch-size", type=int)
     prepare.add_argument("--config")
 
-    run = sub.add_parser("run", help="创建或恢复运行，并调用本地 Codex")
+    run = sub.add_parser("run", help="Create or resume a run using the local Codex")
     run.add_argument("--apps", default="all")
     run.add_argument("--run-id")
     run.add_argument("--run-dir")
@@ -1086,10 +1076,10 @@ def parser():
     run.add_argument("--fail-fast", action="store_true")
     run.add_argument("--config")
 
-    verify = sub.add_parser("verify", help="聚合结果并执行第一阶段完成门")
+    verify = sub.add_parser("verify", help="Aggregate results and check discovery completion")
     verify.add_argument("--run-dir", required=True)
     verify.add_argument("--config")
-    status = sub.add_parser("status", help="查看可恢复运行状态")
+    status = sub.add_parser("status", help="Show resumable run status")
     status.add_argument("--run-dir", required=True)
     status.add_argument("--config")
     return root

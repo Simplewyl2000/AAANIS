@@ -18,32 +18,32 @@ class ConfigError(RuntimeError):
 
 def _positive_int(value, path):
     if isinstance(value, bool) or not isinstance(value, int) or value < 1:
-        raise ConfigError(f"{path} 必须是大于或等于 1 的整数")
+        raise ConfigError(f"{path} must be at least 1 (integer)")
 
 
 def _nonnegative_int(value, path):
     if isinstance(value, bool) or not isinstance(value, int) or value < 0:
-        raise ConfigError(f"{path} 必须是非负整数")
+        raise ConfigError(f"{path} must be a nonnegative integer")
 
 
 def validate(config):
     if config.get("schema_version") != 1:
-        raise ConfigError("axis-config.json.schema_version 当前必须为 1")
+        raise ConfigError("axis-config.json.schema_version must be 1")
     aliases = config.get("app_aliases", {})
     if not isinstance(aliases, dict) or not all(
             isinstance(key, str) and key and isinstance(value, str) and value
             for key, value in aliases.items()):
-        raise ConfigError("app_aliases 必须是非空字符串到非空字符串的映射")
+        raise ConfigError("app_aliases must map nonempty strings to nonempty strings")
     agent = config.get("coding_agent")
     workflow = config.get("workflow")
     if not isinstance(agent, dict) or not isinstance(workflow, dict):
-        raise ConfigError("axis-config.json 必须包含 coding_agent 和 workflow")
+        raise ConfigError("axis-config.json must contain coding_agent and workflow")
     command = agent.get("command")
     if not isinstance(command, str) or not command.strip():
-        raise ConfigError("coding_agent.command 必须是非空字符串")
+        raise ConfigError("coding_agent.command must be a nonempty string")
     model = agent.get("model")
     if model is not None and (not isinstance(model, str) or not model.strip()):
-        raise ConfigError("coding_agent.model 必须是 null 或非空字符串")
+        raise ConfigError("coding_agent.model must be null or a nonempty string")
     _positive_int(agent.get("max_parallel_processes"),
                   "coding_agent.max_parallel_processes")
 
@@ -61,7 +61,7 @@ def validate(config):
             ("command_documentation", documentation),
             ("verification", verification)):
         if not isinstance(row, dict):
-            raise ConfigError(f"workflow.{name} 必须是对象")
+            raise ConfigError(f"workflow.{name} must be an object")
 
     for path, value in (
             ("workflow.onboarding.agent_timeout_seconds",
@@ -100,19 +100,19 @@ def validate(config):
     _nonnegative_int(implementation.get("max_retries"),
                      "workflow.command_implementation.max_retries")
     if not isinstance(documentation.get("enabled"), bool):
-        raise ConfigError("workflow.command_documentation.enabled 必须是布尔值")
+        raise ConfigError("workflow.command_documentation.enabled must be a boolean")
     pass_rate = onboarding.get("minimum_pass_rate")
     if (isinstance(pass_rate, bool) or not isinstance(pass_rate, (int, float))
             or not 0 < pass_rate <= 1):
         raise ConfigError(
-            "workflow.onboarding.minimum_pass_rate 必须在 0 和 1 之间")
+            "workflow.onboarding.minimum_pass_rate must be between 0 and 1 inclusive")
     allowed_sandboxes = {"read-only", "workspace-write", "danger-full-access"}
     for name, value in (
             ("capability_discovery", discovery.get("sandbox")),
             ("capability_review", review.get("sandbox"))):
         if value not in allowed_sandboxes:
             raise ConfigError(
-                f"workflow.{name}.sandbox 必须是 {sorted(allowed_sandboxes)} 之一")
+                f"workflow.{name}.sandbox must be {sorted(allowed_sandboxes)} .")
     return config
 
 
@@ -124,9 +124,9 @@ def load(path=None):
         with selected.open(encoding="utf-8") as handle:
             config = json.load(handle)
     except FileNotFoundError as exc:
-        raise ConfigError(f"找不到 AXIS 配置文件：{selected}") from exc
+        raise ConfigError(f"Cannot find AXIS configuration file: {selected}") from exc
     except json.JSONDecodeError as exc:
-        raise ConfigError(f"AXIS 配置文件不是合法 JSON：{selected}: {exc}") from exc
+        raise ConfigError(f"AXIS Configuration is not valid JSON: {selected}: {exc}") from exc
     validate(config)
     config["_path"] = str(selected)
     return config

@@ -15,3 +15,7 @@ dist/
 bin/*-axis
 !bin/axis-release
 *.log
+apps/*/.probe*/
+apps/*/.runtime_probe*
+.env
+.env.*

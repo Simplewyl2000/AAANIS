@@ -1,18 +1,3 @@
-"""AXIS 冻结（S8）：全门通过的命令 + TCB + 证据清单 -> dist/<app>-axis/。
-
-布局：
-  dist/<app>-axis/
-    axis/{__init__,kernel,cli,proptemplate}.py   # TCB 原样拷贝
-    engine.py [engine_runtime.py ...]             # 应用引擎适配层
-    commands/<name>/{spec.json,impl.py}           # 仅含全门通过的命令
-    guide/{commands.json,commands.md}              # 与命令目录同序的精简文档
-    skills/use-<app>-axis/SKILL.md                 # 教 Agent 发现与组合命令
-    MANIFEST.json                                 # 命令清单 + 逐文件 sha256 + 证据
-  bin/<app>-axis                                  # 相对发布根目录定位的包装脚本
-
-冻结产物运行时零模型依赖；构建后禁手工增删（v2 幽灵命令教训）。
-用法：python3 axis/freeze.py --app <app>
-"""
 import argparse
 import hashlib
 import json
@@ -100,7 +85,7 @@ def latest_implementation_state(app):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="S8 冻结")
+    ap = argparse.ArgumentParser(description="S8 Freeze")
     ap.add_argument("--app", required=True)
     args = ap.parse_args()
 
@@ -116,7 +101,7 @@ def main():
     report = (json.load(open(report_path, encoding="utf-8"))
               if os.path.isfile(report_path) else {})
     if not report:
-        warnings.append("没有可用的验证报告，发布包将不含命令")
+        warnings.append("No verification report; release will contain no commands")
     passed = sorted(
         n for n, r in report.items()
         if isinstance(r, dict) and r.get("pass")
@@ -126,7 +111,7 @@ def main():
     failure_records = implementation_state.get("failed_commands", {})
     failed = sorted((set(report) - set(passed)) | set(failure_records))
     if not passed:
-        warnings.append("没有验证通过的命令，仍生成空发布包和完整报告")
+        warnings.append("No commands passed; generating an empty release with a full report")
 
     dist = os.path.join(_ROOT, "dist", f"{args.app}-axis")
     tmp = dist + ".tmp"
@@ -153,7 +138,7 @@ def main():
     undocumented = copy_release_guide(args.app, app_dir, tmp, passed)
     if undocumented:
         warnings.append(
-            f"完整命令文档缺少 {len(undocumented)} 条已发布命令")
+            f"Command guide is missing {len(undocumented)} released commands")
     skills_src = os.path.join(app_dir, "skills")
     if os.path.isdir(skills_src):
         shutil.copytree(skills_src, os.path.join(tmp, "skills"))
@@ -181,13 +166,13 @@ def main():
                     "excluded": len(failure_records),
                     "exclusion_details": failure_records,
                 },
-                "evidence": "各命令过门记录见 apps/<app>/build/report.json",
+                "evidence": "Command verification records: apps/<app>/build/report.json",
                 "files": files}
     json.dump(manifest, open(os.path.join(tmp, "MANIFEST.json"), "w"),
               indent=1, ensure_ascii=False)
 
     shutil.rmtree(dist, ignore_errors=True)
-    os.rename(tmp, dist)  # 原子替换
+    os.rename(tmp, dist)
 
     bin_dir = os.path.join(_ROOT, "bin")
     os.makedirs(bin_dir, exist_ok=True)
@@ -202,12 +187,12 @@ def main():
         )
     os.chmod(launcher, 0o755)
 
-    print(f"[freeze] {args.app}: {len(passed)} 条命令冻结 -> {dist}")
+    print(f"[freeze] {args.app}: {len(passed)} commands frozen -> {dist}")
     for warning in warnings:
-        print(f"[freeze] 警告：{warning}")
+        print(f"[freeze] Warning: {warning}")
     if failed:
-        print(f"[freeze] 未过门 {len(failed)} 条（不进 dist）: {failed}")
-    print(f"[freeze] 启动器：{launcher}")
+        print(f"[freeze] Failed verification {len(failed)} commands (excluded from dist): {failed}")
+    print(f"[freeze] Launcher: {launcher}")
 
 
 if __name__ == "__main__":
