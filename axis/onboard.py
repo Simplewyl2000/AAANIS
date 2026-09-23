@@ -266,6 +266,8 @@ def check_verify_report(app, min_pass_rate):
     passed = sum(1 for item in results.values() if item.get("pass"))
     rate = passed / total
     detail = f"Verify {total} commands; passed {passed} commands ({rate:.1%})"
+    if passed == 0:
+        return False, detail + "; no verified commands are available for release"
     if rate >= min_pass_rate:
         return True, detail
 
@@ -426,18 +428,31 @@ def check_backlog_investigated(app):
                    f"filtering decisions; for example: {sample}")
 
 
-def check_accepted_implemented(app):
-    """Report implementation coverage without blocking partial release."""
-    accepted = release_approved_symbols(app) & (backlog_symbols(app) or set())
-    if not accepted:
-        return True, "No approved capabilities pending implementation"
-    remaining = accepted - atlas_symbols(app)
-    if not remaining:
-        return True, f"Approved capabilities: {len(accepted)} all have command definitions"
-    sample = ", ".join(sorted(remaining)[:6])
-    return True, (f"Approved {len(accepted)} items, including {len(remaining)} records"
-                  f"without command definitions; recorded and excluded while releasing the remainder."
-                  f"For example: {sample}")
+def check_accepted_implemented(app, run_id=None):
+    """Require recorded outcomes for the current implementation work order."""
+    run_id = run_id or f"onboard-{app}"
+    directory = os.path.join(STAGE2_DIR, "runs", run_id, stage_name(app))
+    try:
+        with open(os.path.join(directory, "manifest.json"), encoding="utf-8") as handle:
+            manifest = json.load(handle)
+        with open(os.path.join(directory, "state.json"), encoding="utf-8") as handle:
+            state = json.load(handle)
+        if manifest.get("run_id") != run_id or manifest.get("app") != stage_name(app):
+            return False, "Implementation work order belongs to a different run or application"
+        planned = {item["command"] for item in manifest["operations"]}
+        # Preparation can omit already verified commands on resume. Preserve the
+        # controller's complete order when checking whether work remains.
+        planned.update(state["command_universe"])
+        completed = set(state["completed"])
+        failed = set(state["failed_commands"])
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        return False, f"Implementation outcomes are not ready for {run_id}: {error}"
+    pending = planned - completed - failed
+    if pending:
+        return False, (f"Implementation pending for {len(pending)}/{len(planned)} commands; "
+                       f"for example: {', '.join(sorted(pending)[:6])}")
+    return True, (f"Implementation attempted all {len(planned)} planned commands; "
+                  f"{len(planned & completed)} accepted, {len(planned & failed)} failed")
 
 
 def run_discovery(app, config, run_id):
@@ -478,6 +493,8 @@ def check_dist(app):
     if not os.path.isdir(directory):
         return False, f"Missing {directory}"
     count = len(os.listdir(directory))
+    if count == 0:
+        return False, "Release contains no verified commands"
     launcher = os.path.join(ROOT, "bin", f"{app}-axis")
     if not os.path.isfile(launcher):
         return False, f"Missing launcher {launcher}"
@@ -555,7 +572,8 @@ def stages(app, launch, min_pass_rate, config, run_id=None):
             "owner": "Model",
             "run": lambda: run_release(app, config, run_id),
             "basis": "stages/02_05/implement_batch.md",
-            "check": lambda: check_accepted_implemented(app),
+            "check": lambda: check_accepted_implemented(app, run_id),
+            "recheck_on_resume": True,
             "legacy_ok": True,
             "what": "Implement approved capabilities as command definitions and engine code",
         },
@@ -734,12 +752,31 @@ def onboard(app, launch, only=None, max_attempts=DEFAULT_MAX_ATTEMPTS,
             index += 1
             continue
         if name in state["done"] and not only:
-            log(f"── {name} completed; skipping (restart with --no-resume)")
-            index += 1
-            continue
+            if stage.get("recheck_on_resume"):
+                valid, reason = stage["check"]()
+                if not valid:
+                    invalidated = [step["name"] for step in plan[index:]]
+                    state["done"] = [step for step in state["done"]
+                                     if step not in invalidated]
+                    state["rerun_steps"] = list(dict.fromkeys(
+                        state.get("rerun_steps", []) + invalidated))
+                    state["history"].append({
+                        "phase": phase_by_step[name], "stage": name,
+                        "owner": stage["owner"], "passed": False,
+                        "detail": "Resume revalidation: " + reason,
+                        "at": time.strftime("%Y-%m-%d %H:%M:%S"),
+                        "invalidated_steps": invalidated})
+                    save_state(app, state)
+                    log(f"── {name}: saved completion has no valid implementation outcomes; "
+                        "resuming this step and refreshing downstream outputs")
+            if name in state["done"]:
+                log(f"── {name} completed; skipping (restart with --no-resume)")
+                index += 1
+                continue
 
         passed, detail = run_stage(stage, app, launch, max_attempts, config,
-                                   force=force, allow_legacy=allow_legacy)
+                                   force=force or name in state.get("rerun_steps", []),
+                                   allow_legacy=allow_legacy)
         state["history"].append({
             "phase": phase_by_step[name], "stage": name,
             "owner": stage["owner"], "passed": passed,
@@ -748,6 +785,8 @@ def onboard(app, launch, only=None, max_attempts=DEFAULT_MAX_ATTEMPTS,
         if passed:
             if name not in state["done"]:
                 state["done"].append(name)
+            if name in state.get("rerun_steps", []):
+                state["rerun_steps"].remove(name)
             save_state(app, state)
             index += 1
             continue
