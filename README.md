@@ -1,7 +1,12 @@
-# AXISRelease
+# ANIS
 
-AXISRelease is a standalone source distribution that converts an installed
-application into a command-line package for agents. 
+ANIS (Agent-Native Interface Synthesizer) is a standalone source distribution
+that converts an installed desktop application into a command-line interface
+for agents. Each released command is an atomic read, write, or operation on an
+application object, implemented against the running application and validated
+before release.
+
+
 
 ## Workflow
 
@@ -32,7 +37,7 @@ Run from this directory:
 ```bash
 chmod +x bin/axis-release bin/axis-bootstrap
 ./bin/axis-release doctor
-./bin/axis-bootstrap "Convert my installed application into AXIS commands"
+./bin/axis-bootstrap "Convert my XXX[installed application] into agent commands"
 ```
 
 ## Application directory
