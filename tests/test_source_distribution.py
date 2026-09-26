@@ -36,7 +36,7 @@ class SourceDistributionTests(unittest.TestCase):
             self.assertEqual(output.read_bytes(), first)
             with tarfile.open(output) as archive:
                 self.assertEqual(set(archive.getnames()), {
-                    "AXIS/README.md", "AXIS/MANIFEST.sha256"})
+                    "ANIS/README.md", "ANIS/MANIFEST.sha256"})
                 for member in archive.getmembers():
                     self.assertEqual((member.uid, member.gid, member.mtime), (0, 0, 0))
                     self.assertEqual((member.uname, member.gname), ("", ""))

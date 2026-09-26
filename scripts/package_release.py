@@ -43,7 +43,7 @@ def package(root, output):
             filename="", mode="wb", fileobj=raw, mtime=0) as compressed:
         with tarfile.open(fileobj=compressed, mode="w") as archive:
             for relative, data in sorted(files.items()):
-                entry = tarfile.TarInfo(f"AXIS/{relative}")
+                entry = tarfile.TarInfo(f"ANIS/{relative}")
                 entry.size = len(data)
                 entry.mode = 0o755 if relative.startswith("bin/") else 0o644
                 entry.uid = entry.gid = entry.mtime = 0
@@ -57,7 +57,7 @@ def main():
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     version = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
-    output = args.output or ROOT / "dist" / f"AXISRelease-{version}.tar.gz"
+    output = args.output or ROOT / "dist" / f"ANIS-{version}.tar.gz"
     count = package(ROOT, output)
     print(f"Packaged {count} verified files: {output.name}")
 
