@@ -598,10 +598,6 @@ def review_item_errors(batch, review):
         if not isinstance(item, dict):
             continue
         grouped.setdefault(item.get("item_id"), []).append(item)
-    extras = sorted(
-        str(item_id) for item_id in grouped if item_id not in expected)
-    if extras:
-        raise WorkflowError(f"Review includes unassigned item_id: {extras}")
     errors = {}
     verdicts = {}
     for item_id in expected:
@@ -756,13 +752,16 @@ def investigate_batch(run_dir, batch_state, args, config, global_config,
             }
             atomic_json(attempt_dir / "controller_error.json", {
                 "error": str(exc), "attempt": attempt_number})
+        attempt_limit = global_config["workflow"]["capability_discovery"][
+            "item_attempt_limit"]
         for assigned in active:
             item_id = assigned["item_id"]
             state = item_states[item_id]
-            state["attempts"] = 1
+            state["attempts"] += 1
             if item_id in review_errors:
                 state.update({
-                    "status": "unfinished",
+                    "status": ("unfinished" if state["attempts"] >= attempt_limit
+                               else "pending"),
                     "error": review_errors[item_id],
                 })
                 continue
