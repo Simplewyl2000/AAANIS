@@ -65,6 +65,7 @@ def doctor(config_path: str | None) -> int:
         ROOT / "monitor" / "static" / "style.css",
         ROOT / "stages" / "01_capability_discovery" / "workflow.py",
         ROOT / "stages" / "02_05_command_release" / "run_app.py",
+        ROOT / "stages" / "06_goal_commands" / "workflow.py",
     ]
     missing = [str(path.relative_to(ROOT)) for path in required if not path.is_file()]
     record(
@@ -113,7 +114,20 @@ def main() -> int:
         help="extra onboard.py arguments after --, for example -- --no-resume",
     )
 
+    goals = subparsers.add_parser(
+        "goals", help="synthesize goal-level commands from recorded requests")
+    goals.add_argument("--app", required=True)
+    goals.add_argument("--requests", required=True)
+    goals.add_argument("--release", action="store_true")
+    goals.add_argument("--config")
+
     args = parser.parse_args()
+    if args.command == "goals":
+        command = [sys.executable, str(ROOT / "stages" / "06_goal_commands" / "workflow.py"),
+                   "--app", args.app, "--requests", str(Path(args.requests).resolve())]
+        command += ["--release"] if args.release else []
+        command += ["--config", args.config] if args.config else []
+        return subprocess.run(command, cwd=ROOT).returncode
     if args.command == "version":
         print(VERSION_FILE.read_text(encoding="utf-8").strip())
         return 0

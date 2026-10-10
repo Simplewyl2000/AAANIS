@@ -126,21 +126,36 @@ def load_impl(cmd_dir):
     return mod
 
 
+def record_call(cmd_dir, raw_args, ok):
+    """Append one invocation to $ANIS_CALL_LOG; goal-level synthesis mines these logs."""
+    path = os.environ.get("ANIS_CALL_LOG")
+    if not path:
+        return
+    entry = {"command": os.path.basename(os.path.normpath(cmd_dir)),
+             "args": raw_args, "ok": ok, "cwd": os.getcwd()}
+    with open(path, "a", encoding="utf-8") as handle:
+        handle.write(json.dumps(entry, ensure_ascii=False) + "\n")
+
+
 def run(cmd_dir, raw_args):
     spec = load_spec(cmd_dir)
     try:
         args = validate(spec, raw_args)
     except AnisError as e:
+        record_call(cmd_dir, raw_args, False)
         _error(e, EXIT_BAD_ARGS)
     try:
         impl = load_impl(cmd_dir)
         report = impl.run(args)
         if not isinstance(report, dict):
             raise TypeError(f"run() must return JSON object; received {type(report).__name__}")
+        record_call(cmd_dir, raw_args, report.get("status", "ok") == "ok")
         emit(report, EXIT_OK)
     except AnisError as e:
+        record_call(cmd_dir, raw_args, False)
         _error(e, EXIT_CMD_ERROR)
     except Exception as e:
+        record_call(cmd_dir, raw_args, False)
         import traceback
         traceback.print_exc(file=sys.stderr)
         emit({"status": "error", "code": "UNEXPECTED",

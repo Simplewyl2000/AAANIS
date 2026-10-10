@@ -118,7 +118,7 @@ def main():
     shutil.rmtree(tmp, ignore_errors=True)
     os.makedirs(os.path.join(tmp, "anis"))
     os.makedirs(os.path.join(tmp, "commands"))
-    for relative in contract["release"]["anis_modules"]:
+    for relative in dict.fromkeys([*contract["release"]["anis_modules"], "goal.py"]):
         src = (Path(_HERE) / relative).resolve()
         if Path(_HERE).resolve() not in src.parents or not src.is_file():
             raise SystemExit(f"[freeze] invalid declared ANIS module: {relative}")

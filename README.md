@@ -23,6 +23,32 @@ The workflow has four main stages:
 Coding agents perform scoped tasks. Python controllers determine progression,
 validation results, and release contents.
 
+## Goal-level commands
+
+After release, ANIS can extend an interface with goal-level commands that
+package recurring compositions of atomic commands
+(`stages/06_goal_commands/`). Set `ANIS_CALL_LOG` to a per-request file while
+an agent serves a request; every released command then appends its invocation.
+Describe each request with one JSONL line:
+
+```json
+{"id": "r1", "request": "task text", "workdir": "inputs/r1", "call_log": "logs/r1.jsonl"}
+```
+
+`workdir` is a clean copy of the request's starting files; relative paths are
+resolved against the JSONL file. Then run:
+
+```bash
+./bin/anis-release goals --app <app> --requests requests.jsonl --release
+```
+
+Contiguous mutation sequences that recur in at least three requests become
+candidates. The coding agent judges whether each candidate realizes a shared
+artifact-level subgoal and names it `<object>-<action>`. A named command is
+released only if, rerun on clean copies of its originating requests, it saves
+the same state as the atomic commands it replaces. Decisions are written to
+`stages/06_goal_commands/runs/`.
+
 ## Requirements
 
 - Linux and Python 3.10 or later; Python code uses the standard library.
