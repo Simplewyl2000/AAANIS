@@ -83,6 +83,11 @@ apps/<app>/
 └── skills/
 ```
 
+## Benchmark
+
+The DeskIF-Bench tasks used in our study are available on Hugging Face:
+[SimAlan/DeskIF-Bench](https://huggingface.co/datasets/SimAlan/DeskIF-Bench).
+
 ## License
 
 ANIS is released under the [MIT License](LICENSE).
