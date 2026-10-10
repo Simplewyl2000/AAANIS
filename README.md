@@ -56,3 +56,7 @@ apps/<app>/
 ├── guide/
 └── skills/
 ```
+
+## License
+
+ANIS is released under the [MIT License](LICENSE).
