@@ -13,8 +13,8 @@ stages/*/runs/
 bootstrap/runs/
 observatory.log
 dist/
-bin/*-axis
-!bin/axis-release
+bin/*-anis
+!bin/anis-release
 *.log
 apps/*/.probe*/
 apps/*/.runtime_probe*

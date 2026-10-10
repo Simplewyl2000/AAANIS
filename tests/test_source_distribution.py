@@ -11,7 +11,7 @@ import tempfile
 import unittest
 from unittest import mock
 
-from axis import onboard, observatory, system_config
+from anis import onboard, observatory, system_config
 from scripts.package_release import package
 
 
@@ -101,7 +101,7 @@ class SourceDistributionTests(unittest.TestCase):
                     "app": "example", "items": [{"item_id": symbol, "symbol": symbol}]}))
                 (batch / "review_result.json").write_text(json.dumps({"items": [{
                     "item_id": symbol, "decision": "expose", "reason": "Useful operation"}]}))
-            with mock.patch.object(module, "AXIS", root), mock.patch.object(
+            with mock.patch.object(module, "ANIS", root), mock.patch.object(
                     module, "RESULT_ROOTS", (root / "discoveries",)), mock.patch.object(
                     module, "__file__", str(root / "prepare.py")), mock.patch.object(
                     sys, "argv", ["prepare.py", "--run-id", "current-run"]), contextlib.redirect_stdout(io.StringIO()):

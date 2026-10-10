@@ -1,6 +1,6 @@
-# AXIS isolated implementation merge
+# ANIS isolated implementation merge
 
-You are the merge worker for one completed AXIS command-implementation batch.
+You are the merge worker for one completed ANIS command-implementation batch.
 The Python controller gives you three app directories:
 
 - `baseline_app`: the exact app snapshot from which the implementation worker started;
@@ -15,7 +15,7 @@ agent identity or model setting.
 Rules:
 
 1. The listed commands are the complete scope. Do not implement a new command
-   and do not change another app or shared files under `axis/`.
+   and do not change another app or shared files under `anis/`.
 2. Treat `baseline_app -> candidate_app` as this batch's proposed change and
    `baseline_app -> destination_app` as changes already accepted from other
    batches.
@@ -28,7 +28,7 @@ Rules:
    unrelated destination entries. Do not edit generated `commands/` files.
 5. Inspect the actual differences. Do not assume that every file in the
    candidate changed, and do not reapply changes that are already present.
-6. Do not run `axis/build.py`, `axis/verify.py`, or freeze a release. Python owns
+6. Do not run `anis/build.py`, `anis/verify.py`, or freeze a release. Python owns
    those decisions and will mechanically reject commands that do not work.
 7. If two changes genuinely conflict, resolve them so both accepted destination
    behavior and the candidate command remain supported. Report any unresolved

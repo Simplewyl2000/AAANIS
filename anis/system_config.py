@@ -1,4 +1,4 @@
-"""Load and validate the repository-wide AXIS orchestration configuration."""
+"""Load and validate the repository-wide ANIS orchestration configuration."""
 
 from __future__ import annotations
 
@@ -7,9 +7,9 @@ import os
 from pathlib import Path
 
 
-AXIS_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_CONFIG_PATH = AXIS_ROOT / "axis-config.json"
-CONFIG_ENV = "AXIS_CONFIG"
+ANIS_ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_CONFIG_PATH = ANIS_ROOT / "anis-config.json"
+CONFIG_ENV = "ANIS_CONFIG"
 
 
 class ConfigError(RuntimeError):
@@ -28,7 +28,7 @@ def _nonnegative_int(value, path):
 
 def validate(config):
     if config.get("schema_version") != 1:
-        raise ConfigError("axis-config.json.schema_version must be 1")
+        raise ConfigError("anis-config.json.schema_version must be 1")
     aliases = config.get("app_aliases", {})
     if not isinstance(aliases, dict) or not all(
             isinstance(key, str) and key and isinstance(value, str) and value
@@ -37,7 +37,7 @@ def validate(config):
     agent = config.get("coding_agent")
     workflow = config.get("workflow")
     if not isinstance(agent, dict) or not isinstance(workflow, dict):
-        raise ConfigError("axis-config.json must contain coding_agent and workflow")
+        raise ConfigError("anis-config.json must contain coding_agent and workflow")
     command = agent.get("command")
     if not isinstance(command, str) or not command.strip():
         raise ConfigError("coding_agent.command must be a nonempty string")
@@ -119,14 +119,14 @@ def validate(config):
 def load(path=None):
     selected = Path(path or os.environ.get(CONFIG_ENV) or DEFAULT_CONFIG_PATH)
     if not selected.is_absolute():
-        selected = (AXIS_ROOT / selected).resolve()
+        selected = (ANIS_ROOT / selected).resolve()
     try:
         with selected.open(encoding="utf-8") as handle:
             config = json.load(handle)
     except FileNotFoundError as exc:
-        raise ConfigError(f"Cannot find AXIS configuration file: {selected}") from exc
+        raise ConfigError(f"Cannot find ANIS configuration file: {selected}") from exc
     except json.JSONDecodeError as exc:
-        raise ConfigError(f"AXIS Configuration is not valid JSON: {selected}: {exc}") from exc
+        raise ConfigError(f"ANIS Configuration is not valid JSON: {selected}: {exc}") from exc
     validate(config)
     config["_path"] = str(selected)
     return config

@@ -1,10 +1,10 @@
-# AXIS application-entry bootstrap
+# ANIS application-entry bootstrap
 
 You are the bounded entry-discovery worker for application `{{APP}}`.
 
 Your only job is to determine how the application that is already installed on
-this machine should be handed to the AXIS onboarding workflow. Do not implement
-AXIS commands, do not edit the repository, and do not install or upgrade any
+this machine should be handed to the ANIS onboarding workflow. Do not implement
+ANIS commands, do not edit the repository, and do not install or upgrade any
 software.
 
 Inspect local evidence such as:

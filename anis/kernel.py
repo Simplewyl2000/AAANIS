@@ -12,7 +12,7 @@ _TRUE_VALUES = {"1", "true", "yes"}
 _FALSE_VALUES = {"0", "false", "no"}
 
 
-class AxisError(Exception):
+class AnisError(Exception):
     def __init__(self, code, message, fix):
         super().__init__(message)
         self.code = code
@@ -54,27 +54,27 @@ def _coerce(name, aspec, value):
                     "bool": lambda p: str(p).strip().lower() in ("1", "true", "yes")}[elem]
             value = [cast(p) for p in parts]
     except ValueError:
-        raise AxisError("INVALID_ARGS", f"Argument --{name} requires {t}; received {value!r}",
+        raise AnisError("INVALID_ARGS", f"Argument --{name} requires {t}; received {value!r}",
                         "Add --schema to see parameter types")
     if t == "vec":
         size = aspec.get("size")
         if size is not None and len(value) != size:
-            raise AxisError("INVALID_ARGS",
+            raise AnisError("INVALID_ARGS",
                             f"--{name} requires {size} components; received {len(value)} items",
                             "comma-separated, for example --value 1,2,3,4")
     if t == "enum" and value not in aspec.get("values", []):
-        raise AxisError("INVALID_ARGS", f"--{name} value {value!r} is invalid; choices: {aspec.get('values')}",
+        raise AnisError("INVALID_ARGS", f"--{name} value {value!r} is invalid; choices: {aspec.get('values')}",
                         "Add --schema to see valid values")
     if t in ("int", "float"):
         lo, hi = aspec.get("min"), aspec.get("max")
         if (lo is not None and value < lo) or (hi is not None and value > hi):
-            raise AxisError("INVALID_ARGS", f"--{name}={value} out of range [{lo}, {hi}]",
+            raise AnisError("INVALID_ARGS", f"--{name}={value} out of range [{lo}, {hi}]",
                             "Add --schema to see the allowed range")
     return value
 
 
 def cli_value(value):
-    """Encode one JSON-compatible value using the public AXIS CLI contract."""
+    """Encode one JSON-compatible value using the public ANIS CLI contract."""
     if isinstance(value, bool):
         return "true" if value else "false"
     if isinstance(value, (list, dict)):
@@ -97,7 +97,7 @@ def validate(spec, raw):
     known = spec.get("args", {})
     for k in raw:
         if k not in known:
-            raise AxisError("INVALID_ARGS", f"Unknown argument --{k}", "Add --schema to see arguments")
+            raise AnisError("INVALID_ARGS", f"Unknown argument --{k}", "Add --schema to see arguments")
     args = {}
     for name, aspec in known.items():
         if name in raw:
@@ -105,7 +105,7 @@ def validate(spec, raw):
         elif "default" in aspec:
             args[name] = aspec["default"]
         elif aspec.get("required"):
-            raise AxisError("INVALID_ARGS", f"Missing required argument --{name}", "Add --schema to see arguments")
+            raise AnisError("INVALID_ARGS", f"Missing required argument --{name}", "Add --schema to see arguments")
         else:
             args[name] = None
     return args
@@ -118,7 +118,7 @@ def load_spec(cmd_dir):
 
 def load_impl(cmd_dir):
     path = os.path.join(cmd_dir, "impl.py")
-    mod_spec = importlib.util.spec_from_file_location("axis_impl", path)
+    mod_spec = importlib.util.spec_from_file_location("anis_impl", path)
     mod = importlib.util.module_from_spec(mod_spec)
     mod_spec.loader.exec_module(mod)
     if not callable(getattr(mod, "run", None)):
@@ -130,7 +130,7 @@ def run(cmd_dir, raw_args):
     spec = load_spec(cmd_dir)
     try:
         args = validate(spec, raw_args)
-    except AxisError as e:
+    except AnisError as e:
         _error(e, EXIT_BAD_ARGS)
     try:
         impl = load_impl(cmd_dir)
@@ -138,7 +138,7 @@ def run(cmd_dir, raw_args):
         if not isinstance(report, dict):
             raise TypeError(f"run() must return JSON object; received {type(report).__name__}")
         emit(report, EXIT_OK)
-    except AxisError as e:
+    except AnisError as e:
         _error(e, EXIT_CMD_ERROR)
     except Exception as e:
         import traceback

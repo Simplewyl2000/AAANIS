@@ -8,12 +8,12 @@ _ROOT = os.path.dirname(_HERE)
 if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
-from axis import app_contract, runtime  # noqa: E402
+from anis import app_contract, runtime  # noqa: E402
 
-IMPL_TEMPLATE = '''"""{command}: AXIS Generated from template. Binding:  BINDING."""
+IMPL_TEMPLATE = '''"""{command}: ANIS Generated from template. Binding:  BINDING."""
 import engine
-from axis import proptemplate
-from axis.kernel import AxisError  # noqa: F401  (for engine error compatibility)
+from anis import proptemplate
+from anis.kernel import AnisError  # noqa: F401  (for engine error compatibility)
 
 BINDING = {binding}
 
@@ -24,10 +24,10 @@ def run(args):
     return report
 '''
 
-ACTION_IMPL_TEMPLATE = '''"""{command}: AXIS Generated from template. Action binding:  BINDING."""
+ACTION_IMPL_TEMPLATE = '''"""{command}: ANIS Generated from template. Action binding:  BINDING."""
 import engine
-from axis import actiontemplate
-from axis.kernel import AxisError  # noqa: F401  (for engine error compatibility)
+from anis import actiontemplate
+from anis.kernel import AnisError  # noqa: F401  (for engine error compatibility)
 
 BINDING = {binding}
 
@@ -38,10 +38,10 @@ def run(args):
     return report
 '''
 
-TRANSFORM_IMPL_TEMPLATE = '''"""{command}: AXIS Generated from template. Transform binding:  BINDING."""
+TRANSFORM_IMPL_TEMPLATE = '''"""{command}: ANIS Generated from template. Transform binding:  BINDING."""
 import engine
-from axis import transformtemplate
-from axis.kernel import AxisError  # noqa: F401  (for engine error compatibility)
+from anis import transformtemplate
+from anis.kernel import AnisError  # noqa: F401  (for engine error compatibility)
 
 BINDING = {binding}
 
@@ -52,9 +52,9 @@ def run(args):
     return report
 '''
 
-OBSERVATION_IMPL_TEMPLATE = '''"""{command}: AXIS Generated independent read-only observation command."""
+OBSERVATION_IMPL_TEMPLATE = '''"""{command}: ANIS Generated independent read-only observation command."""
 import engine
-from axis.kernel import AxisError  # noqa: F401
+from anis.kernel import AnisError  # noqa: F401
 
 BINDING = {binding}
 
@@ -65,10 +65,10 @@ def run(args):
     return report
 '''
 
-GETTER_IMPL_TEMPLATE = '''"""{command}: AXIS Generated independent property getter."""
+GETTER_IMPL_TEMPLATE = '''"""{command}: ANIS Generated independent property getter."""
 import engine
-from axis import proptemplate
-from axis.kernel import AxisError  # noqa: F401
+from anis import proptemplate
+from anis.kernel import AnisError  # noqa: F401
 
 BINDING = {binding}
 

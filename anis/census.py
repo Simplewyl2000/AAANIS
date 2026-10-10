@@ -25,7 +25,7 @@ def app_command(app):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="AXIS S1 Application capability census dispatcher")
+    ap = argparse.ArgumentParser(description="ANIS S1 Application capability census dispatcher")
     ap.add_argument("--app", required=True,
                     help="Application name. Choices are determined by apps/*/runtime.json ; "
                          f"available: {', '.join(runtime.available_apps()) or 'none'}")

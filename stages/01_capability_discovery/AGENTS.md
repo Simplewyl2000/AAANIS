@@ -3,7 +3,7 @@
 This directory is an evidence-producing capability-discovery workspace.
 
 - Work only on item IDs present in the assigned `batch.json`.
-- Do not edit files under `AXIS/apps`, `AXIS/axis`, `AXIS/dist`, or existing
+- Do not edit files under `ANIS/apps`, `ANIS/anis`, `ANIS/dist`, or existing
   capability ledgers.
 - Put temporary probes and evidence only inside the current batch directory.
 - Do not read a whole large build report or log. Use the current `symbol`,

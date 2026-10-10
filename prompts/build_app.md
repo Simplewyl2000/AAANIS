@@ -6,16 +6,16 @@ Create these application-owned files:
 1. `apps/{app}/engine.py`: application execution adapter.
 2. `apps/{app}/atlas_gen.py`: probe that writes initial command definitions under
    `apps/{app}/atlas/`.
-3. `apps/{app}/axis-app.json`: build, verification, and release contract.
+3. `apps/{app}/anis-app.json`: build, verification, and release contract.
 
 Do not run filtering, batch implementation, documentation, or release. The Python
 controller schedules those stages after validating these outputs.
 
 ## Read first
 
-- `axis/proptemplate.py` for property binding and normalization.
-- `axis/build.py` and `docs/ATLAS.md` for command definition and rendering contracts.
-- `axis/app_contract.py` for application contract structure and path boundaries.
+- `anis/proptemplate.py` for property binding and normalization.
+- `anis/build.py` and `docs/ATLAS.md` for command definition and rendering contracts.
+- `anis/app_contract.py` for application contract structure and path boundaries.
 - `apps/{app}/census/raw_ops.json` for actual available symbols.
 
 ## Architecture
@@ -41,7 +41,7 @@ in `release.runtime_files`.
   "documentation": {"example_file": "demo.out"},
   "release": {
     "runtime_files": ["engine.py"],
-    "axis_modules": [
+    "anis_modules": [
       "__init__.py", "kernel.py", "cli.py", "proptemplate.py",
       "actiontemplate.py", "transformtemplate.py"
     ]
@@ -58,13 +58,13 @@ the adapter must remain under the application directory.
 ## Engine contract
 
 - `get_raw(args, binding)` returns the raw scalar or list value. Raise
-  `AxisError("TARGET_NOT_FOUND", ...)` when selectors do not resolve a target.
+  `AnisError("TARGET_NOT_FOUND", ...)` when selectors do not resolve a target.
 - `set_raw(args, binding, raw)` writes the raw value and saves the file.
 - `describe_target(args, binding)` returns a human-readable target description.
 - `make_demo_doc(path, text=None, table_cells=None)` creates verifier demo files.
 - `observe(path)` returns JSON-compatible document state.
 
-Import `AxisError` from `axis.kernel`. Error codes must appear in the command
+Import `AnisError` from `anis.kernel`. Error codes must appear in the command
 specification. Standard errors include `TARGET_NOT_FOUND`, `INPUT_NOT_FOUND`,
 `ENGINE_UNAVAILABLE`, and `OPEN_FAILED`; declare others in `errors_extra`.
 

@@ -1,4 +1,4 @@
-You are the final command-documentation worker in the AXIS build workflow.
+You are the final command-documentation worker in the ANIS build workflow.
 
 Python has already selected the commands that passed implementation checks and
 written their compact static metadata to `{{INPUT_PATH}}`. Read that file and

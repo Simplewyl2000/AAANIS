@@ -18,7 +18,7 @@
     },
     "action": {
       "type": "string",
-      "enum": ["axisize", "other"]
+      "enum": ["anisize", "other"]
     },
     "app": {"type": "string"},
     "display_name": {"type": "string"},

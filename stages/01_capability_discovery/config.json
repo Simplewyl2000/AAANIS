@@ -20,5 +20,5 @@
     "execution error",
     "state unchanged after saving and reopening"
   ],
-  "notes": "Applications are discovered from apps/*; execution settings live in ../../axis-config.json"
+  "notes": "Applications are discovered from apps/*; execution settings live in ../../anis-config.json"
 }

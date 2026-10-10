@@ -1,4 +1,4 @@
-"""Read-only Web observatory for bootstrap and the four-stage AXIS workflow."""
+"""Read-only Web observatory for bootstrap and the four-stage ANIS workflow."""
 
 from __future__ import annotations
 
@@ -171,7 +171,7 @@ class Handler(SimpleHTTPRequestHandler):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="AXIS read-only observatory")
+    parser = argparse.ArgumentParser(description="ANIS read-only observatory")
     parser.add_argument("--run-dir", required=True, type=Path)
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8765)
@@ -183,7 +183,7 @@ def main():
         (args.host, args.port), lambda *values, **kwargs: Handler(
             *values, directory=str(STATIC), **kwargs))
     server.run_dir = run_dir
-    print(f"AXIS observatory: http://{args.host}:{args.port}", flush=True)
+    print(f"ANIS observatory: http://{args.host}:{args.port}", flush=True)
     try:
         server.serve_forever(poll_interval=0.5)
     except KeyboardInterrupt:

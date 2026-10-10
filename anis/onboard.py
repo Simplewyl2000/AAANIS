@@ -191,24 +191,24 @@ def check_app_adapter(app):
     """Require every application-owned input needed by later generic stages."""
     required = (
         ("engine.py", "engine adapter"),
-        ("axis-app.json", "application contract"),
+        ("anis-app.json", "application contract"),
     )
     for relative, what in required:
         passed, detail = check_file_exists(app, relative, what)
         if not passed:
             return passed, detail
     try:
-        from axis import app_contract
+        from anis import app_contract
         app_contract.load(app)
     except Exception as error:
-        return False, f"axis-app.json failed structural validation: {error}"
+        return False, f"anis-app.json failed structural validation: {error}"
     probe = os.path.join(app_dir(app), "atlas_gen.py")
     atlas_ok, _ = check_atlas_not_empty(app)
     if not os.path.isfile(probe) and not atlas_ok:
         return False, ("Neither atlas_gen.pynor existing command definitions were found; "
                        "the adapter must provide a source of command candidates")
     source = "atlas_gen.py" if os.path.isfile(probe) else "existing atlas command definitions"
-    return True, f"engine.py, axis-app.json and{source}is ready and the contract is valid"
+    return True, f"engine.py, anis-app.json and{source}is ready and the contract is valid"
 
 
 def run_atlas_probe(app):
@@ -489,13 +489,13 @@ def run_release(app, config, run_id):
 
 
 def check_dist(app):
-    directory = os.path.join(ROOT, "dist", f"{app}-axis", "commands")
+    directory = os.path.join(ROOT, "dist", f"{app}-anis", "commands")
     if not os.path.isdir(directory):
         return False, f"Missing {directory}"
     count = len(os.listdir(directory))
     if count == 0:
         return False, "Release contains no verified commands"
-    launcher = os.path.join(ROOT, "bin", f"{app}-axis")
+    launcher = os.path.join(ROOT, "bin", f"{app}-anis")
     if not os.path.isfile(launcher):
         return False, f"Missing launcher {launcher}"
     return True, f"Freeze {count} commands; launcher {launcher}"
@@ -540,7 +540,7 @@ def stages(app, launch, min_pass_rate, config, run_id=None):
             "owner": "Model",
             "prompt": "build_app.md",
             "check": lambda: check_app_adapter(app),
-            "what": "Application-owned engine.py, atlas_gen.py and axis-app.json",
+            "what": "Application-owned engine.py, atlas_gen.py and anis-app.json",
         },
         {
             "name": "6-Run probe",
@@ -810,7 +810,7 @@ def onboard(app, launch, only=None, max_attempts=DEFAULT_MAX_ATTEMPTS,
     if only:
         log(f"Selected step completed: {only}. This does not imply that later steps or the CLI are complete.")
     else:
-        log(f"Completed.CLI at dist/{app}-axis/; launcher bin/{app}-axis")
+        log(f"Completed.CLI at dist/{app}-anis/; launcher bin/{app}-anis")
     return state
 
 
@@ -843,7 +843,7 @@ def main():
                              "For legacy adapters with published commands; "
                              "not intended for new applications.")
     parser.add_argument(
-        "--config", help="AXIS Global configuration; defaults to the root axis-config.json")
+        "--config", help="ANIS Global configuration; defaults to the root anis-config.json")
     parser.add_argument("--redo-limit", type=int,
                         help="Maximum retries of an earlier model step after validation fails")
     options = parser.parse_args()

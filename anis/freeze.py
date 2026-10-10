@@ -12,7 +12,7 @@ _ROOT = os.path.dirname(_HERE)
 if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
-from axis import app_contract  # noqa: E402
+from anis import app_contract  # noqa: E402
 
 
 def sha256(path):
@@ -113,16 +113,16 @@ def main():
     if not passed:
         warnings.append("No commands passed; generating an empty release with a full report")
 
-    dist = os.path.join(_ROOT, "dist", f"{args.app}-axis")
+    dist = os.path.join(_ROOT, "dist", f"{args.app}-anis")
     tmp = dist + ".tmp"
     shutil.rmtree(tmp, ignore_errors=True)
-    os.makedirs(os.path.join(tmp, "axis"))
+    os.makedirs(os.path.join(tmp, "anis"))
     os.makedirs(os.path.join(tmp, "commands"))
-    for relative in contract["release"]["axis_modules"]:
+    for relative in contract["release"]["anis_modules"]:
         src = (Path(_HERE) / relative).resolve()
         if Path(_HERE).resolve() not in src.parents or not src.is_file():
-            raise SystemExit(f"[freeze] invalid declared AXIS module: {relative}")
-        destination = Path(tmp) / "axis" / relative
+            raise SystemExit(f"[freeze] invalid declared ANIS module: {relative}")
+        destination = Path(tmp) / "anis" / relative
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, destination)
     for relative in contract["release"]["runtime_files"]:
@@ -176,13 +176,13 @@ def main():
 
     bin_dir = os.path.join(_ROOT, "bin")
     os.makedirs(bin_dir, exist_ok=True)
-    launcher = os.path.join(bin_dir, f"{args.app}-axis")
+    launcher = os.path.join(bin_dir, f"{args.app}-anis")
     with open(launcher, "w") as f:
         f.write(
             "#!/bin/sh\n"
-            'axis_root=$(CDPATH= cd "$(dirname "$0")/.." && pwd)\n'
-            f'app_dir="$axis_root/dist/{args.app}-axis"\n'
-            'exec env PYTHONPATH="$app_dir" python3 "$app_dir/axis/cli.py" '
+            'anis_root=$(CDPATH= cd "$(dirname "$0")/.." && pwd)\n'
+            f'app_dir="$anis_root/dist/{args.app}-anis"\n'
+            'exec env PYTHONPATH="$app_dir" python3 "$app_dir/anis/cli.py" '
             '--app "$app_dir" "$@"\n'
         )
     os.chmod(launcher, 0o755)

@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from unittest import mock
 
-from axis import onboard
+from anis import onboard
 
 
 class ImplementationResumeTests(unittest.TestCase):
@@ -158,10 +158,10 @@ class ImplementationResumeTests(unittest.TestCase):
         self.assertTrue(onboard.check_verify_report('example', 1.0)[0])
 
     def test_empty_release_with_launcher_is_not_ready(self):
-        folder = self.root / 'dist' / 'example-axis' / 'commands'
+        folder = self.root / 'dist' / 'example-anis' / 'commands'
         folder.mkdir(parents=True)
         (self.root / 'bin').mkdir()
-        (self.root / 'bin' / 'example-axis').write_text('#!/bin/sh\n')
+        (self.root / 'bin' / 'example-anis').write_text('#!/bin/sh\n')
         self.assertFalse(onboard.check_dist('example')[0])
 
 

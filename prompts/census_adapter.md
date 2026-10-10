@@ -9,8 +9,8 @@ Launcher hint: {launch}
 
 ## Read first
 
-- `axis/census.py` and `apps/{app}/runtime.json` for collector execution.
-- `axis/conformance.py` for deterministic validation requirements.
+- `anis/census.py` and `apps/{app}/runtime.json` for collector execution.
+- `anis/conformance.py` for deterministic validation requirements.
 - The channel and record contracts below.
 
 ## Verify the environment
@@ -114,12 +114,12 @@ Write the JSON file and print per-channel counts and reconciliation results.
 
 ## Acceptance
 
-1. `python3 axis/census.py --app {app}` exits successfully.
+1. `python3 anis/census.py --app {app}` exits successfully.
 2. The output is valid JSON, with every channel present or explicitly unavailable.
 3. Counts and set accounting agree with the underlying records.
 4. Repeated runs are deterministic: sort output and exclude timestamps, temporary
    paths, memory addresses, and unstable iteration order.
-5. `python3 axis/conformance.py --app {app}` passes. Repair the reported records
+5. `python3 anis/conformance.py --app {app}` passes. Repair the reported records
    instead of weakening validation.
 
 ## Constraints

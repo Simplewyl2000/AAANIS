@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deterministic controller for AXIS stage-1 capability discovery.
+"""Deterministic controller for ANIS stage-1 capability discovery.
 
 The controller owns scope, batching, Codex invocation, structured-output
 validation, evidence validation, semantic filtering, resume state, and the
@@ -25,9 +25,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 STAGE_DIR = Path(__file__).resolve().parent
-AXIS_ROOT = STAGE_DIR.parents[1]
-sys.path.insert(0, str(AXIS_ROOT))
-from axis import system_config  # noqa: E402
+ANIS_ROOT = STAGE_DIR.parents[1]
+sys.path.insert(0, str(ANIS_ROOT))
+from anis import system_config  # noqa: E402
 
 CONFIG_PATH = STAGE_DIR / "config.json"
 DISCOVERY_SCHEMA = STAGE_DIR / "schemas" / "discovery_result.schema.json"
@@ -49,7 +49,7 @@ class WorkflowError(RuntimeError):
 
 def load_config():
     config = copy.deepcopy(load_json(CONFIG_PATH))
-    apps_root = AXIS_ROOT / "apps"
+    apps_root = ANIS_ROOT / "apps"
     for app_dir in sorted(apps_root.iterdir() if apps_root.is_dir() else []):
         if not app_dir.is_dir() or app_dir.name in config["apps"]:
             continue
@@ -64,8 +64,8 @@ def load_config():
             "app_dir": app_dir.name,
             "runtime_family": runtime_decl.get(
                 "runtime_family", "model_selected_programmatic_entrypoints"),
-            "existing_census": str(census_path.relative_to(AXIS_ROOT)),
-            "existing_ledger": str(ledger_path.relative_to(AXIS_ROOT)),
+            "existing_census": str(census_path.relative_to(ANIS_ROOT)),
+            "existing_ledger": str(ledger_path.relative_to(ANIS_ROOT)),
         }
     return config
 
@@ -218,7 +218,7 @@ def prepare_run(args, global_config=None):
     inputs = {
         "run_id": run_id,
         "created_at": dt.datetime.now(dt.timezone.utc).isoformat(),
-        "axis_root": str(AXIS_ROOT),
+        "anis_root": str(ANIS_ROOT),
         "apps": apps,
         "batch_size": args.batch_size or discovery_config["batch_size"],
         "global_config": global_config["_path"],
@@ -240,13 +240,13 @@ def prepare_run(args, global_config=None):
     counts = {}
     for app in apps:
         app_config = config["apps"][app]
-        census = AXIS_ROOT / app_config["existing_census"]
-        ledger_path = AXIS_ROOT / app_config["existing_ledger"]
+        census = ANIS_ROOT / app_config["existing_census"]
+        ledger_path = ANIS_ROOT / app_config["existing_ledger"]
         for path in (census, ledger_path):
             if not path.is_file():
                 raise WorkflowError(f"Missing discovery input: {path}")
         ledger = load_json(ledger_path)
-        app_root = AXIS_ROOT / "apps" / app_config["app_dir"]
+        app_root = ANIS_ROOT / "apps" / app_config["app_dir"]
         items = make_items(app, ledger, config, app_root)
         queued = [item for item in items if item["stage1_action"] == "queue"]
         app_run = run_dir / app
@@ -617,9 +617,9 @@ def batch_prompt_values(batch, attempt_dir, config):
     app_config = config["apps"][batch["app"]]
     return {
         "BATCH_PATH": attempt_dir / "batch.json",
-        "AXIS_ROOT": AXIS_ROOT,
-        "CENSUS_PATH": AXIS_ROOT / app_config["existing_census"],
-        "LEDGER_PATH": AXIS_ROOT / app_config["existing_ledger"],
+        "ANIS_ROOT": ANIS_ROOT,
+        "CENSUS_PATH": ANIS_ROOT / app_config["existing_census"],
+        "LEDGER_PATH": ANIS_ROOT / app_config["existing_ledger"],
         "RUNTIME_FAMILY": batch["runtime_family"],
         "MAX_ATTEMPTS": config["max_attempts_per_item"],
     }
@@ -999,7 +999,7 @@ def verify_run(run_dir):
         "items": unfinished_commands,
     })
     lines = [
-        "# AXIS Capability discovery report", "",
+        "# ANIS Capability discovery report", "",
         f"- Run: `{inputs['run_id']}`",
         f"- Completion check: {'passed' if not gate_errors else 'failed'}", "",
         "| Application | Total items | Reused results | Approved for exposure | Filtered out | Unfinished | Missing |",
@@ -1055,7 +1055,7 @@ def print_status(run_dir):
 
 def parser():
     root = argparse.ArgumentParser(
-        description="AXIS Deterministic capability discovery workflow")
+        description="ANIS Deterministic capability discovery workflow")
     sub = root.add_subparsers(dest="command", required=True)
     prepare = sub.add_parser("prepare", help="Freeze inputs and create the complete task queue")
     prepare.add_argument("--apps", default="all")

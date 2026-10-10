@@ -77,7 +77,7 @@ supported for compatibility.
 ## Validation
 
 ```bash
-python3 axis/onboard.py --app {app} --only "Discover programmatic entrypoint"
+python3 anis/onboard.py --app {app} --only "Discover programmatic entrypoint"
 ```
 
 This check verifies the declaration and host executable. The later collector run

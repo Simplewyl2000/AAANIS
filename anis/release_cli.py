@@ -1,4 +1,4 @@
-"""Stable command-line entry point for the standalone AXIS release artifact."""
+"""Stable command-line entry point for the standalone ANIS release artifact."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from axis import system_config
+from anis import system_config
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -17,7 +17,7 @@ VERSION_FILE = ROOT / "VERSION"
 
 
 def _onboard_command(config: str | None, arguments: list[str]) -> list[str]:
-    command = [sys.executable, str(ROOT / "axis" / "onboard.py")]
+    command = [sys.executable, str(ROOT / "anis" / "onboard.py")]
     if config:
         command.extend(["--config", config])
     command.extend(arguments)
@@ -59,7 +59,7 @@ def doctor(config_path: str | None) -> int:
         ROOT / "prompts" / "bootstrap_runtime.schema.json",
         ROOT / "prompts" / "bootstrap_intent.md",
         ROOT / "prompts" / "bootstrap_intent.schema.json",
-        ROOT / "axis" / "observatory.py",
+        ROOT / "anis" / "observatory.py",
         ROOT / "monitor" / "static" / "index.html",
         ROOT / "monitor" / "static" / "app.js",
         ROOT / "monitor" / "static" / "style.css",
@@ -89,8 +89,8 @@ def doctor(config_path: str | None) -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        prog="axis-release",
-        description="Configure, inspect, and run the standalone AXIS workflow",
+        prog="anis-release",
+        description="Configure, inspect, and run the standalone ANIS workflow",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 

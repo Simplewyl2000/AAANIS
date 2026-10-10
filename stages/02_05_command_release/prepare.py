@@ -9,12 +9,12 @@ from pathlib import Path
 from routing import command_name, route_for
 
 
-AXIS = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(AXIS))
-from axis import system_config  # noqa: E402
+ANIS = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ANIS))
+from anis import system_config  # noqa: E402
 
 
-RESULT_ROOTS = (AXIS / "stages" / "01_capability_discovery" / "runs",)
+RESULT_ROOTS = (ANIS / "stages" / "01_capability_discovery" / "runs",)
 APP_DIR = {}
 
 
@@ -107,7 +107,7 @@ def accepted_items(run_names):
                         "review": reviewed,
                         "discovery": implementation_discovery(
                             assigned, reviewed),
-                        "source": str(attempt.relative_to(AXIS)),
+                        "source": str(attempt.relative_to(ANIS)),
                     }
         for state_path in sorted(run_dir.glob("*/state.json")):
             app = state_path.parent.name
@@ -130,7 +130,7 @@ def accepted_items(run_names):
                         "key": key,
                         "assigned": assigned,
                         "discovery": discovered,
-                        "source": str(attempt.relative_to(AXIS)),
+                        "source": str(attempt.relative_to(ANIS)),
                     }
     return accepted
 
@@ -145,7 +145,7 @@ def supplemental_items(paths):
                 continue
             key = f"supplemental:{discovered['item_id']}"
             try:
-                source = str(path.relative_to(AXIS))
+                source = str(path.relative_to(ANIS))
             except ValueError:
                 source = str(path)
             items[(app, key)] = {
@@ -162,8 +162,8 @@ def supplemental_items(paths):
 
 
 def command_needed(app_dir, command):
-    atlas = AXIS / "apps" / app_dir / "atlas" / f"{command}.json"
-    report_path = AXIS / "apps" / app_dir / "build" / "report.json"
+    atlas = ANIS / "apps" / app_dir / "atlas" / f"{command}.json"
+    report_path = ANIS / "apps" / app_dir / "build" / "report.json"
     if not atlas.is_file() or not report_path.is_file():
         return True
     report = load(report_path)
@@ -214,7 +214,7 @@ def main():
         "--apps", default="",
         help="Comma-separated application names; empty means all")
     parser.add_argument(
-        "--config", help="AXIS Global configuration; defaults to the root axis-config.json")
+        "--config", help="ANIS Global configuration; defaults to the root anis-config.json")
     parser.add_argument(
         "--discovery-run", action="append", dest="discovery_runs",
         help="Repeatable discovery run ID")

@@ -1,4 +1,4 @@
-"""Load one application's AXIS contract without teaching the core its name."""
+"""Load one application's ANIS contract without teaching the core its name."""
 
 from __future__ import annotations
 
@@ -8,8 +8,8 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-CONTRACT_NAME = "axis-app.json"
-GENERIC_AXIS_MODULES = [
+CONTRACT_NAME = "anis-app.json"
+GENERIC_ANIS_MODULES = [
     "__init__.py", "kernel.py", "cli.py", "proptemplate.py",
     "actiontemplate.py", "transformtemplate.py",
 ]
@@ -39,7 +39,7 @@ def load(app: str) -> dict:
         if not isinstance(payload.get(section), dict):
             raise AppContractError(f"{path}: {section} must be an object")
     release = payload["release"]
-    for key in ("runtime_files", "axis_modules"):
+    for key in ("runtime_files", "anis_modules"):
         values = release.get(key)
         if not isinstance(values, list) or not all(
                 isinstance(value, str) and value for value in values):
@@ -59,7 +59,7 @@ def load_adapter(app: str, contract: dict | None = None):
         raise AppContractError(
             f"application adapter must be an existing file below {root}: {path}")
     spec = importlib.util.spec_from_file_location(
-        f"axis_app_adapter_{app.replace('-', '_')}", path)
+        f"anis_app_adapter_{app.replace('-', '_')}", path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module

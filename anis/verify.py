@@ -13,7 +13,7 @@ _ROOT = os.path.dirname(_HERE)
 if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
-from axis import app_contract, kernel, runtime  # noqa: E402
+from anis import app_contract, kernel, runtime  # noqa: E402
 
 RUN_TIMEOUT = 300
 
@@ -21,7 +21,7 @@ RUN_TIMEOUT = 300
 def cli(app_dir, argv, timeout=RUN_TIMEOUT):
     env = dict(os.environ)
     env["PYTHONPATH"] = _ROOT + os.pathsep + app_dir
-    r = subprocess.run([sys.executable, os.path.join(_ROOT, "axis", "cli.py"),
+    r = subprocess.run([sys.executable, os.path.join(_ROOT, "anis", "cli.py"),
                         "--app", app_dir] + argv,
                        capture_output=True, text=True, env=env, timeout=timeout)
     try:
@@ -34,7 +34,7 @@ def cli(app_dir, argv, timeout=RUN_TIMEOUT):
 
 def load_engine(app, app_dir):
     path = os.path.join(app_dir, "engine.py")
-    spec = importlib.util.spec_from_file_location(f"axis_verify_engine_{app}", path)
+    spec = importlib.util.spec_from_file_location(f"anis_verify_engine_{app}", path)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
@@ -103,7 +103,7 @@ def gate_structure(cmd_dir, spec, app_dir):
     for p in (_ROOT, app_dir):
         if p not in sys.path:
             sys.path.insert(0, p)
-    from axis import kernel
+    from anis import kernel
     try:
         kernel.load_impl(cmd_dir)
     except Exception as e:
@@ -237,7 +237,7 @@ def external_state(app, app_dir, spec, demo, engine, contract):
     if kind == "processing":
         return engine.action_state(args, spec["binding"]).get("current")
     if kind in contract["build"].get("selector_args", {}):
-        from axis import proptemplate
+        from anis import proptemplate
         return proptemplate.get(args, spec["binding"], engine)["current"]
     raise RuntimeError(f"No {app}/{kind} external observation is defined")
 
@@ -380,7 +380,7 @@ def verify_one(app, app_dir, cmd_root, symbols, contract, adapter, name):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="AXIS Command external verification")
+    ap = argparse.ArgumentParser(description="ANIS Command external verification")
     ap.add_argument("--app", required=True)
     ap.add_argument("--only")
     ap.add_argument("--jobs", type=int, default=1,

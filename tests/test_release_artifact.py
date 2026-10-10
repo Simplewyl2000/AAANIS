@@ -7,7 +7,7 @@ import unittest
 from unittest import mock
 from pathlib import Path
 
-from axis import bootstrap, onboard, observatory, system_config
+from anis import bootstrap, onboard, observatory, system_config
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -15,13 +15,13 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class ReleaseArtifactTests(unittest.TestCase):
     def test_default_configuration_is_valid(self):
-        config = system_config.load(ROOT / "axis-config.json")
+        config = system_config.load(ROOT / "anis-config.json")
         self.assertEqual(config["app_aliases"], {})
 
     def test_workflow_has_four_public_stages(self):
         phases = onboard.workflow_stages(
             "example", "example", 1.0,
-            system_config.load(ROOT / "axis-config.json"),
+            system_config.load(ROOT / "anis-config.json"),
         )
         self.assertEqual(len(phases), 4)
         self.assertEqual(sum(len(phase["steps"]) for phase in phases), 14)
@@ -37,7 +37,7 @@ class ReleaseArtifactTests(unittest.TestCase):
             r"\b(blender|libreoffice|writer|calc|impress|qgis|gimp|ooxml|uno)\b",
             re.IGNORECASE,
         )
-        files = list((ROOT / "axis").glob("*.py"))
+        files = list((ROOT / "anis").glob("*.py"))
         files.extend((ROOT / "stages").glob("**/*.py"))
         hits = {
             str(path.relative_to(ROOT)): forbidden.findall(
@@ -49,7 +49,7 @@ class ReleaseArtifactTests(unittest.TestCase):
 
     def test_plan_entrypoint_runs_without_an_application_adapter(self):
         result = subprocess.run(
-            [str(ROOT / "bin" / "axis-release"), "plan",
+            [str(ROOT / "bin" / "anis-release"), "plan",
              "--app", "example", "--launch", "example"],
             cwd=ROOT, text=True, capture_output=True,
         )
@@ -57,7 +57,7 @@ class ReleaseArtifactTests(unittest.TestCase):
         self.assertIn("Stage 4", result.stdout)
 
     def test_custom_config_reaches_command_preparation(self):
-        config = system_config.load(ROOT / "axis-config.json")
+        config = system_config.load(ROOT / "anis-config.json")
         commands = []
 
         def fake_run(command, **kwargs):
@@ -88,10 +88,10 @@ class ReleaseArtifactTests(unittest.TestCase):
     def test_bootstrap_accepts_a_model_normalized_natural_request(self):
         payload = {
             "status": "ready",
-            "action": "axisize",
+            "action": "anisize",
             "app": "example-app",
             "display_name": "Example Application",
-            "request_summary": "Create AXIS capabilities for the application.",
+            "request_summary": "Create ANIS capabilities for the application.",
             "confidence": 0.94,
             "clarification": "",
         }
@@ -100,7 +100,7 @@ class ReleaseArtifactTests(unittest.TestCase):
     def test_bootstrap_preserves_model_clarification(self):
         payload = {
             "status": "needs_clarification",
-            "action": "axisize",
+            "action": "anisize",
             "app": "",
             "display_name": "",
             "request_summary": "The request could name two applications.",
@@ -125,20 +125,20 @@ class ReleaseArtifactTests(unittest.TestCase):
     def test_bootstrap_forwards_only_validated_hint_to_existing_workflow(self):
         command = bootstrap.downstream_command(
             "example", sys.executable,
-            str(ROOT / "axis-config.json"), fresh=True)
-        self.assertEqual(command[0], str(ROOT / "bin" / "axis-release"))
+            str(ROOT / "anis-config.json"), fresh=True)
+        self.assertEqual(command[0], str(ROOT / "bin" / "anis-release"))
         self.assertIn("--launch", command)
         self.assertEqual(command[-2:], ["--", "--no-resume"])
 
     def test_bootstrap_has_no_fixed_application_vocabulary(self):
-        source = (ROOT / "axis" / "bootstrap.py").read_text(encoding="utf-8")
+        source = (ROOT / "anis" / "bootstrap.py").read_text(encoding="utf-8")
         self.assertNotIn("known_apps", source)
         self.assertNotIn("APP_ALIASES", source)
 
-    def test_natural_language_plan_starts_existing_axis_controller(self):
+    def test_natural_language_plan_starts_existing_anis_controller(self):
         intent = {
-            "status": "ready", "action": "axisize", "app": "example-app",
-            "display_name": "Example Application", "request_summary": "Axisize it.",
+            "status": "ready", "action": "anisize", "app": "example-app",
+            "display_name": "Example Application", "request_summary": "Anisize it.",
             "confidence": 0.98, "clarification": "",
         }
         entry = {
@@ -147,7 +147,7 @@ class ReleaseArtifactTests(unittest.TestCase):
             "evidence": ["Local executable verified."], "alternatives": [],
             "notes": "",
         }
-        config = system_config.load(ROOT / "axis-config.json")
+        config = system_config.load(ROOT / "anis-config.json")
         process = mock.Mock(pid=43210)
         process.wait.return_value = 0
         with tempfile.TemporaryDirectory() as directory, mock.patch.object(
@@ -156,11 +156,11 @@ class ReleaseArtifactTests(unittest.TestCase):
                 bootstrap, "interpret_request", return_value=intent), mock.patch.object(
                 bootstrap, "discover", return_value=(entry, Path(directory))), mock.patch.object(
                 bootstrap.subprocess, "Popen", return_value=process) as launched, mock.patch.object(
-                sys, "argv", ["axis-bootstrap", "--no-monitor",
+                sys, "argv", ["anis-bootstrap", "--no-monitor",
                               "Please make this app usable by an Agent"]):
             self.assertEqual(bootstrap.main(), 0)
         command = launched.call_args.args[0]
-        self.assertEqual(command[0], str(ROOT / "bin" / "axis-release"))
+        self.assertEqual(command[0], str(ROOT / "bin" / "anis-release"))
         self.assertIn("example-app", command)
 
     def test_observatory_exposes_bootstrap_progress(self):

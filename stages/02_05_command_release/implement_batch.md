@@ -1,14 +1,14 @@
-# AXIS command implementation batch
+# ANIS command implementation batch
 
 You are implementing a fixed batch of software capabilities approved for user
 exposure. Stage 1 deliberately performed no runtime probe, parameter design,
 evidence review, or persistence test. Those responsibilities begin here. Work
-only in the isolated AXIS workspace selected as your current directory. It is a
+only in the isolated ANIS workspace selected as your current directory. It is a
 private candidate copy, not the shared source.
 
 The controller will append a JSON batch after this prompt. Implement every
 operation in that batch exactly once. Do not implement operations outside it.
-`reference_axis_root` names the original AXIS tree. Use it only to read shared
+`reference_anis_root` names the original ANIS tree. Use it only to read shared
 framework code and the structured census records referenced by each operation.
 Write every change under the current isolated workspace.
 
@@ -67,10 +67,10 @@ Rules:
    rather than inventing one. The controller runs shards of this family in
    order, while unrelated families remain parallel.
 6. Parameters copied from census are raw source information, not a finished
-   public interface. Expose only parameters an AXIS user can supply as JSON-compatible CLI values.
+   public interface. Expose only parameters an ANIS user can supply as JSON-compatible CLI values.
    Include selectors needed to locate the target object and output paths needed
    by file-producing commands. Reject invalid targets and unsafe overwrite
-   cases with AxisError.
+   cases with AnisError.
    When `requires_runtime_investigation` is true, the route in the work order is
    only a safe placeholder. Replace it in the atlas with the route established
    by the implementation investigation. The final atlas `generation_route` is
@@ -84,7 +84,7 @@ Rules:
      listed by Stage 1.
    - `single_session_operation`: perform every selection/mode/sub-operation in
      one engine invocation so temporary handles are not lost between CLI calls.
-   AXIS has one Boolean parameter syntax: every Boolean command parameter is
+   ANIS has one Boolean parameter syntax: every Boolean command parameter is
    written explicitly as `--name true` or `--name false`. Never define a
    presence-only Boolean switch and never put a bare `--force` in a demo or
    recipe. Only the interface controls `--help`, `--schema`, and `--recipe`
@@ -96,15 +96,15 @@ Rules:
    the file; file-producing operations must report the actual output path.
 8. Give every atlas cell a deterministic demo using the existing make-demo
    fixture and an externally checkable expectation. During this app-scoped
-   batch, do not edit shared files under `axis/`; if the standard verifier
+   batch, do not edit shared files under `anis/`; if the standard verifier
    cannot express a necessary observation, add a general observation operation
    inside this app's engine and record the remaining verifier limitation in the
    final message. Never special-case a task ID or return a precomputed answer.
-9. Do not run `axis/build.py` or `axis/verify.py` from this worker. Other fixed
+9. Do not run `anis/build.py` or `anis/verify.py` from this worker. Other fixed
    implementation batches run in their own isolated copies. After you finish,
    Python starts a merge Agent that compares your candidate with its baseline
    and the latest shared app, merges `engine.py` and other required app files,
-   then exclusively runs build and `axis/verify.py --only <command>` for every
+   then exclusively runs build and `anis/verify.py --only <command>` for every
    command in this batch. It returns the exact failures for repair. Fix those
    failures on the next attempt.
    Verification must implement the supplied `persistence_check`, including a
@@ -114,7 +114,7 @@ Rules:
    that process tree and treat that experiment as failed; never leave a GUI,
    Xvfb, or shell process waiting in the background.
 10. Preserve all existing commands and behavior. Do not modify another app or
-    shared files under `axis/`.
+    shared files under `anis/`.
 11. Reuse verified application implementations where available. Commands must
     remain discoverable by ordinary English words in their names or summaries.
 12. Persistent edits must be saved and reopened, preserving unrelated document
@@ -127,6 +127,6 @@ Rules:
 
 At the end, print a compact table with each operation, command, and implementation
 status. Mark verification as pending controller validation; only the controller
-may change it to passed after invoking the command through AXIS CLI.
+may change it to passed after invoking the command through ANIS CLI.
 
 Write generated documentation, messages, and metadata in English.

@@ -1,4 +1,4 @@
-"""Discover an installed application's entrypoint before AXIS onboarding."""
+"""Discover an installed application's entrypoint before ANIS onboarding."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ import time
 from urllib.request import urlopen
 from pathlib import Path
 
-from axis import system_config
+from anis import system_config
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -42,8 +42,8 @@ def validate_intent(payload: object) -> dict:
         raise BootstrapError(f"invalid intent status: {status!r}")
     if status == "ready":
         app = payload.get("app")
-        if payload.get("action") != "axisize":
-            raise BootstrapError("ready intent is not an AXIS onboarding action")
+        if payload.get("action") != "anisize":
+            raise BootstrapError("ready intent is not an ANIS onboarding action")
         if not isinstance(app, str) or not APP_NAME.fullmatch(app):
             raise BootstrapError("model returned an unsafe application slug")
         if not str(payload.get("display_name", "")).strip():
@@ -174,7 +174,7 @@ def start_observatory(run_dir: Path, preferred_port: int) -> tuple[str, int]:
     log_path = run_dir / "observatory.log"
     with log_path.open("a", encoding="utf-8") as log:
         process = subprocess.Popen(
-            [sys.executable, str(ROOT / "axis" / "observatory.py"),
+            [sys.executable, str(ROOT / "anis" / "observatory.py"),
              "--run-dir", str(run_dir), "--port", str(port)],
             cwd=ROOT, stdout=log, stderr=subprocess.STDOUT,
             start_new_session=True)
@@ -223,7 +223,7 @@ def discover(app: str, config: dict, run_dir: Path | None = None
 def downstream_command(app: str, launch: str, config_path: str,
                        fresh: bool) -> list[str]:
     command = [
-        str(ROOT / "bin" / "axis-release"), "run",
+        str(ROOT / "bin" / "anis-release"), "run",
         "--app", app, "--launch", launch, "--config", config_path,
     ]
     if fresh:
@@ -233,8 +233,8 @@ def downstream_command(app: str, launch: str, config_path: str,
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        prog="axis-bootstrap",
-        description="Understand a natural-language request, then start AXIS",
+        prog="anis-bootstrap",
+        description="Understand a natural-language request, then start ANIS",
     )
     parser.add_argument(
         "request", nargs="*",
@@ -242,11 +242,11 @@ def main() -> int:
     parser.add_argument("--config")
     parser.add_argument(
         "--discover-only", action="store_true",
-        help="record the discovered entrypoint without starting AXIS",
+        help="record the discovered entrypoint without starting ANIS",
     )
     parser.add_argument(
         "--fresh", action="store_true",
-        help="archive prior AXIS progress and start a new end-to-end run",
+        help="archive prior ANIS progress and start a new end-to-end run",
     )
     parser.add_argument(
         "--monitor-port", type=int, default=8765,
@@ -261,7 +261,7 @@ def main() -> int:
     if not request and not sys.stdin.isatty():
         request = sys.stdin.read().strip()
     if not request:
-        request = input("Describe the application you want AXIS to onboard: ").strip()
+        request = input("Describe the application you want ANIS to onboard: ").strip()
     if not request:
         parser.error("the natural-language request cannot be empty")
     run_dir = None
@@ -308,9 +308,9 @@ def main() -> int:
                      ensure_ascii=False, indent=2))
     if result["status"] != "found":
         report_progress(run_dir, "handoff", "skipped",
-                        "No verified entrypoint; did not start AXIS")
+                        "No verified entrypoint; did not start ANIS")
         print(
-            f"[bootstrap] did not start AXIS because status={result['status']}; "
+            f"[bootstrap] did not start ANIS because status={result['status']}; "
             f"evidence is preserved in {run_dir}", file=sys.stderr)
         return 3
     if args.discover_only:
@@ -322,7 +322,7 @@ def main() -> int:
         intent["app"], result["launch_command"],
         config["_path"], args.fresh)
     report_progress(run_dir, current_step, "running",
-                    "Python is starting the four-stage AXIS controller")
+                    "Python is starting the four-stage ANIS controller")
     process = subprocess.Popen(command, cwd=ROOT)
     handoff = {"pid": process.pid, "status": "running", "command": command,
                "started_at": dt.datetime.now().astimezone().isoformat()}
@@ -330,7 +330,7 @@ def main() -> int:
         json.dumps(handoff, indent=2, ensure_ascii=False) + "\n",
         encoding="utf-8")
     report_progress(run_dir, current_step, "completed",
-                    f"main AXIS started; PID {process.pid}")
+                    f"main ANIS started; PID {process.pid}")
     return_code = process.wait()
     handoff.update({"status": "completed" if return_code == 0 else "failed",
                     "return_code": return_code,

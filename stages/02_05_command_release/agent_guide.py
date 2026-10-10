@@ -10,7 +10,7 @@ from pathlib import Path
 
 
 HERE = Path(__file__).resolve().parent
-AXIS = HERE.parents[1]
+ANIS = HERE.parents[1]
 PROMPT = (HERE / "document_commands.md").read_text(encoding="utf-8")
 OUTPUT_FIELDS = {"command", "purpose", "operates_on", "produces"}
 
@@ -147,13 +147,13 @@ def render_markdown(payload: dict) -> str:
 
 def render_skill(app: str) -> str:
     """Render the small, application-neutral Agent usage skill."""
-    tool = f"{app}-axis"
+    tool = f"{app}-anis"
     return f"""---
-name: use-{app}-axis
-description: Use the released {app} AXIS command package to discover, compose, and execute application commands without bypassing its public interface.
+name: use-{app}-anis
+description: Use the released {app} ANIS command package to discover, compose, and execute application commands without bypassing its public interface.
 ---
 
-# Use {app} AXIS
+# Use {app} ANIS
 
 Use this skill when a task must be completed through `{tool}`.
 
@@ -170,15 +170,15 @@ Use this skill when a task must be completed through `{tool}`.
 
 ## Compose commands by objects
 
-AXIS commands are small operations centered on runtime objects. A creation
+ANIS commands are small operations centered on runtime objects. A creation
 command may produce a reusable object; later commands can operate on that same
 object. Build a sequence by matching `Produces` to `Operates on`, not by guessing
 that similarly named parameters or commands are compatible.
 
 Prefer the shortest sequence that creates or locates the required object,
-changes it, and saves or exports the requested artifact. Use only released AXIS
+changes it, and saves or exports the requested artifact. Use only released ANIS
 commands; if the guide and `dir` expose no required operation, report the missing
-capability instead of bypassing AXIS with another API or direct file rewriting.
+capability instead of bypassing ANIS with another API or direct file rewriting.
 """
 
 
@@ -202,7 +202,7 @@ def generate(app: str, app_dir_name: str, run_dir: Path, executable: str,
     doc_dir = run_dir / "documentation"
     doc_dir.mkdir(parents=True, exist_ok=True)
     status_path = doc_dir / "status.json"
-    source = prepare_input(app, AXIS / "apps" / app_dir_name, command_names)
+    source = prepare_input(app, ANIS / "apps" / app_dir_name, command_names)
     input_path = doc_dir / "input.json"
     output_path = doc_dir / "candidate.json"
     input_path.write_text(
@@ -249,7 +249,7 @@ def generate(app: str, app_dir_name: str, run_dir: Path, executable: str,
         return status("failed", "Python Documentation completeness check failed", error=error)
 
     payload["sections"] = source["sections"]
-    guide_dir = (AXIS / "apps" / app_dir_name / "guide"
+    guide_dir = (ANIS / "apps" / app_dir_name / "guide"
                  if publish else doc_dir / "result")
     guide_dir.mkdir(parents=True, exist_ok=True)
     (guide_dir / "commands.json").write_text(
@@ -257,9 +257,9 @@ def generate(app: str, app_dir_name: str, run_dir: Path, executable: str,
         encoding="utf-8")
     (guide_dir / "commands.md").write_text(
         render_markdown(payload), encoding="utf-8")
-    skill_dir = ((AXIS / "apps" / app_dir_name / "skills"
-                  / f"use-{app}-axis") if publish else
-                 doc_dir / "result" / "skills" / f"use-{app}-axis")
+    skill_dir = ((ANIS / "apps" / app_dir_name / "skills"
+                  / f"use-{app}-anis") if publish else
+                 doc_dir / "result" / "skills" / f"use-{app}-anis")
     skill_dir.mkdir(parents=True, exist_ok=True)
     skill_path = skill_dir / "SKILL.md"
     skill_path.write_text(render_skill(app), encoding="utf-8")
@@ -277,9 +277,9 @@ def main():
     parser.add_argument("--config")
     args = parser.parse_args()
     import sys
-    if str(AXIS) not in sys.path:
-        sys.path.insert(0, str(AXIS))
-    from axis import system_config
+    if str(ANIS) not in sys.path:
+        sys.path.insert(0, str(ANIS))
+    from anis import system_config
     config = system_config.load(args.config)
     agent = config["coding_agent"]
     documentation = config["workflow"]["command_documentation"]

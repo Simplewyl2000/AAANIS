@@ -13,7 +13,7 @@
   },
   "release": {
     "runtime_files": ["engine.py"],
-    "axis_modules": [
+    "anis_modules": [
       "__init__.py",
       "kernel.py",
       "cli.py",

@@ -1,7 +1,7 @@
-# AXIS configuration
+# ANIS configuration
 
-`axis-config.json` is the single repository-wide configuration file. Pass a
-different file with `--config`, or set `AXIS_CONFIG` to an absolute path.
+`anis-config.json` is the single repository-wide configuration file. Pass a
+different file with `--config`, or set `ANIS_CONFIG` to an absolute path.
 
 ## Coding Agent
 
@@ -54,7 +54,7 @@ sequential chunks in one lane, while unrelated families can run in parallel.
 - `command_documentation.enabled`: generate the complete guide and Skill;
 - `command_documentation.timeout_seconds`: documentation Agent timeout;
 - `verification.jobs`: requested verification concurrency. An application may
-  lower this with `axis-app.json.verification.max_parallel_jobs`.
+  lower this with `anis-app.json.verification.max_parallel_jobs`.
 
 All counts are positive integers except `max_retries`, which may be zero.
 Invalid values fail before a workflow starts.

@@ -6,13 +6,13 @@ do not add or omit items.
 ## Inputs
 
 - Assignment: `{{BATCH_PATH}}`
-- AXIS root, for read-only reference: `{{AXIS_ROOT}}`
+- ANIS root, for read-only reference: `{{ANIS_ROOT}}`
 - Application census: `{{CENSUS_PATH}}`
 - Application ledger: `{{LEDGER_PATH}}`
 - Runtime family: `{{RUNTIME_FAMILY}}`
 
 Read the assignment and ledger first. Reuse established evidence without
-redesigning AXIS or rewriting the collector. Extract relevant records using the
+redesigning ANIS or rewriting the collector. Extract relevant records using the
 current symbol and command names rather than loading entire reports or logs.
 
 ## Investigation

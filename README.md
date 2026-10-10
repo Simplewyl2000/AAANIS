@@ -6,12 +6,6 @@ for agents. Each released command is an atomic read, write, or operation on an
 application object, implemented against the running application and validated
 before release.
 
-> **Naming.** ANIS is the name used in the paper. In the source code it appears
-> under its internal codename **AXIS**: the Python package `axis/`, the entry
-> points `bin/axis-bootstrap` and `bin/axis-release`, the configuration file
-> `axis-config.json`, and released packages under `dist/<app>-axis/`. Both
-> names refer to the same system.
-
 
 
 ## Workflow
@@ -24,7 +18,7 @@ The workflow has four main stages:
 3. **Command implementation:** implement object-family batches in isolated working
    copies, then build and validate commands through Python controllers.
 4. **Documentation and release:** generate command documentation and an agent
-   skill, then package passing commands under `dist/<app>-axis/`.
+   skill, then package passing commands under `dist/<app>-anis/`.
 
 Coding agents perform scoped tasks. Python controllers determine progression,
 validation results, and release contents.
@@ -41,9 +35,9 @@ validation results, and release contents.
 Run from this directory:
 
 ```bash
-chmod +x bin/axis-release bin/axis-bootstrap
-./bin/axis-release doctor
-./bin/axis-bootstrap "Convert my XXX[installed application] into agent commands"
+chmod +x bin/anis-release bin/anis-bootstrap
+./bin/anis-release doctor
+./bin/anis-bootstrap "Convert my XXX[installed application] into agent commands"
 ```
 
 ## Application directory
@@ -55,7 +49,7 @@ apps/<app>/
 ├── census/raw_ops.json
 ├── engine.py
 ├── atlas_gen.py
-├── axis-app.json
+├── anis-app.json
 ├── atlas/
 ├── commands/
 ├── build/report.json

@@ -13,9 +13,9 @@ from pathlib import Path
 
 
 HERE = Path(__file__).resolve().parent
-AXIS = HERE.parents[1]
-sys.path.insert(0, str(AXIS))
-from axis import system_config  # noqa: E402
+ANIS = HERE.parents[1]
+sys.path.insert(0, str(ANIS))
+from anis import system_config  # noqa: E402
 from agent_guide import generate as generate_agent_guide  # noqa: E402
 from family_batching import contract_error, plan_family_lanes  # noqa: E402
 
@@ -57,7 +57,7 @@ def create_isolated_workspace(batch_dir, attempt_number, app_dir):
         shutil.rmtree(attempt_dir)
     base_root = attempt_dir / "base"
     candidate_root = attempt_dir / "candidate"
-    source = AXIS / "apps" / app_dir
+    source = ANIS / "apps" / app_dir
     if not source.is_dir():
         raise FileNotFoundError(f"app source directory does not exist: {source}")
     ignore = shutil.ignore_patterns("__pycache__", "*.pyc")
@@ -77,13 +77,13 @@ def merge_candidate(executable, model, app_dir, batch_id, round_items,
         "commands": [item["command"] for item in round_items],
         "baseline_app": str(base_root / "apps" / app_dir),
         "candidate_app": str(candidate_root / "apps" / app_dir),
-        "destination_app": str(AXIS / "apps" / app_dir),
+        "destination_app": str(ANIS / "apps" / app_dir),
     }
     prompt = MERGE_PROMPT + render_text(MERGE_ASSIGNMENT, {
         "ASSIGNMENT_JSON": json.dumps(
             payload, indent=2, ensure_ascii=False),
     })
-    command = agent_command(executable, model, AXIS, merge_last)
+    command = agent_command(executable, model, ANIS, merge_last)
     try:
         result = subprocess.run(
             command, input=prompt, text=True, capture_output=True,
@@ -105,7 +105,7 @@ def merge_candidate(executable, model, app_dir, batch_id, round_items,
 def restore_rejected_commands(base_root, app_dir, rejected_commands):
     """Keep failed commands out of later full builds using the frozen baseline."""
     baseline_app = base_root / "apps" / app_dir
-    destination_app = AXIS / "apps" / app_dir
+    destination_app = ANIS / "apps" / app_dir
     for command in rejected_commands:
         for relative in (
                 Path("atlas") / f"{command}.json",
@@ -129,7 +129,7 @@ def verify_items(items, app_dir, timeout, batch_dir, attempt_number):
     targets = []
     for item in items:
         command = item["command"]
-        atlas = AXIS / "apps" / app_dir / "atlas" / f"{command}.json"
+        atlas = ANIS / "apps" / app_dir / "atlas" / f"{command}.json"
         if atlas.is_file():
             targets.append(item)
         else:
@@ -140,9 +140,9 @@ def verify_items(items, app_dir, timeout, batch_dir, attempt_number):
         command = item["command"]
         try:
             build = subprocess.run(
-                ["python3", "axis/build.py", "--app", app_dir,
+                ["python3", "anis/build.py", "--app", app_dir,
                  "--only", command],
-                cwd=AXIS, capture_output=True, text=True, timeout=timeout)
+                cwd=ANIS, capture_output=True, text=True, timeout=timeout)
             build_log = build.stdout + build.stderr
         except subprocess.TimeoutExpired:
             build = None
@@ -153,9 +153,9 @@ def verify_items(items, app_dir, timeout, batch_dir, attempt_number):
             continue
         try:
             check = subprocess.run(
-                ["python3", "axis/verify.py", "--app", app_dir,
+                ["python3", "anis/verify.py", "--app", app_dir,
                  "--only", command],
-                cwd=AXIS, capture_output=True, text=True, timeout=timeout)
+                cwd=ANIS, capture_output=True, text=True, timeout=timeout)
             log = check.stdout + check.stderr
         except subprocess.TimeoutExpired:
             log = f"verification timed out after {timeout} seconds"
@@ -184,7 +184,7 @@ def main():
     parser.add_argument("--model")
     parser.add_argument(
         "--timeout", type=int,
-        help="Maximum seconds per implementation attempt; defaults from axis-config.json")
+        help="Maximum seconds per implementation attempt; defaults from anis-config.json")
     parser.add_argument(
         "--verify-timeout", type=int,
         help="Maximum seconds per build or verification; timeout fails only the current command")
@@ -362,7 +362,7 @@ def main():
                 "batch_id": batch_id,
                 "app": args.app,
                 "app_dir": manifest["app_dir"],
-                "reference_axis_root": str(AXIS),
+                "reference_anis_root": str(ANIS),
                 "operations": round_items,
                 **family_context,
             }
@@ -457,7 +457,7 @@ def main():
                 if contract_path:
                     try:
                         contract = json.loads(
-                            (AXIS / contract_path).read_text(encoding="utf-8"))
+                            (ANIS / contract_path).read_text(encoding="utf-8"))
                         family_failure = contract_error(contract)
                     except (OSError, json.JSONDecodeError) as exc:
                         family_failure = (

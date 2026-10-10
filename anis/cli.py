@@ -4,7 +4,7 @@ import os
 import shlex
 import sys
 
-from axis import kernel
+from anis import kernel
 
 # Only interface controls are valueless. All command parameters, including
 # booleans such as force/overwrite, use the single form ``--name true|false``.
@@ -48,12 +48,12 @@ _BUILTIN_SPECS = {
 def _tool_name(app_dir):
     """Derive the launcher name from an application package directory."""
     base = os.path.basename(os.path.normpath(app_dir))
-    return base if base.endswith("-axis") else base + "-axis"
+    return base if base.endswith("-anis") else base + "-anis"
 
 
 def _file_example(app_dir):
     """Read the display-only example filename from the app-owned contract."""
-    path = os.path.join(app_dir, "axis-app.json")
+    path = os.path.join(app_dir, "anis-app.json")
     if os.path.isfile(path):
         try:
             with open(path, encoding="utf-8") as handle:
@@ -175,7 +175,7 @@ def _dir_list(app_dir):
     by_obj = _catalog(app_dir)
     categories = [
         {"category": obj, "command_count": len(by_obj[obj]),
-         "summary": ("AXIS Built-in commands" if obj == "builtin"
+         "summary": ("ANIS Built-in commands" if obj == "builtin"
                      else f"{obj} Object commands")}
         for obj in by_obj
     ]
@@ -262,7 +262,7 @@ def _builtin(app_dir, command, kv, flags):
         if command == "guide":
             path = os.path.join(app_dir, "guide", "commands.json")
             if not os.path.isfile(path):
-                raise kernel.AxisError(
+                raise kernel.AnisError(
                     "GUIDE_UNAVAILABLE", "This release has no command guide",
                     "Complete documentation and rebuild the release")
             with open(path, encoding="utf-8") as handle:
@@ -270,7 +270,7 @@ def _builtin(app_dir, command, kv, flags):
             kernel.emit({"status": "ok", "guide": guide}, kernel.EXIT_OK)
         if command == "observe":
             if "file" not in kv:
-                raise kernel.AxisError("INVALID_ARGS", "Missing --file", "observe --file <document path>")
+                raise kernel.AnisError("INVALID_ARGS", "Missing --file", "observe --file <document path>")
             kernel.emit({"status": "ok", "state": engine.observe(kv["file"])}, kernel.EXIT_OK)
         if command == "make-demo":
             args = kernel.validate(
@@ -279,7 +279,7 @@ def _builtin(app_dir, command, kv, flags):
             path = args.get("file", "demo.odt")
             force = args["force"]
             if os.path.exists(path) and not force:
-                raise kernel.AxisError(
+                raise kernel.AnisError(
                     "OUTPUT_EXISTS",
                     f"make-demo Refusing to overwrite existing file: {path}",
                     "Change --file target path; to overwrite the file, add --force true and retry")
@@ -293,7 +293,7 @@ def _builtin(app_dir, command, kv, flags):
                 engine.make_demo_doc(path, args.get("text"), table_cells)
             kernel.emit({"status": "ok", "command": "make-demo", "file": path},
                         kernel.EXIT_OK)
-    except kernel.AxisError as e:
+    except kernel.AnisError as e:
         kernel.emit({"status": "error", "code": e.code, "message": str(e), "fix": e.fix},
                     kernel.EXIT_CMD_ERROR)
 

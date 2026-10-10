@@ -38,7 +38,7 @@ def census_path(app):
 def load_census(app):
     path = census_path(app)
     if not os.path.isfile(path):
-        raise SystemExit(f"Cannot find {path}. First run python3 axis/census.py --app {app}")
+        raise SystemExit(f"Cannot find {path}. First run python3 anis/census.py --app {app}")
     with open(path, encoding="utf-8") as handle:
         return json.load(handle)
 
