@@ -6,6 +6,12 @@ for agents. Each released command is an atomic read, write, or operation on an
 application object, implemented against the running application and validated
 before release.
 
+> **Naming.** ANIS is the name used in the paper. In the source code it appears
+> under its internal codename **AXIS**: the Python package `axis/`, the entry
+> points `bin/axis-bootstrap` and `bin/axis-release`, the configuration file
+> `axis-config.json`, and released packages under `dist/<app>-axis/`. Both
+> names refer to the same system.
+
 
 
 ## Workflow
