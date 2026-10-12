@@ -32,28 +32,22 @@ def load(app):
         known = available_apps()
         raise RuntimeError_(
             f"Missing {path}.\n"
-            "This file declares the application interpreter and is written after runtime\n"
+            "This file declares the application runner and is written after runtime\n"
             "discovery (see prompts/census_adapter.md environment checks).\n"
             f"Applications with declarations: {known or 'none'}")
     with open(path, encoding="utf-8") as handle:
         declaration = json.load(handle)
 
     runner = declaration.get("runner")
-    interpreter = declaration.get("interpreter")
-    if runner is not None:
-        if not isinstance(runner, list) or not runner:
-            raise RuntimeError_(
-                f"{path} in runner must be a nonempty list, for example\n"
-                '  ["python3", "{script}"]')
-        placeholders = sum(str(token).count("{script}") for token in runner)
-        if placeholders != 1:
-            raise RuntimeError_(
-                f"{path} in runner must contain exactly one {{script}} placeholder; "
-                f"found {placeholders} items")
-    elif not isinstance(interpreter, list) or not interpreter:
+    if not isinstance(runner, list) or not runner:
         raise RuntimeError_(
-            f"{path} must declare runner; legacy interpreter is also supported; for example\n"
+            f"{path} must declare runner as a nonempty list, for example\n"
             '  {"runner": ["python3", "{script}"]}')
+    placeholders = sum(str(token).count("{script}") for token in runner)
+    if placeholders != 1:
+        raise RuntimeError_(
+            f"{path}: runner must contain exactly one {{script}} placeholder; "
+            f"found {placeholders}")
     return declaration
 
 
@@ -69,22 +63,18 @@ def build_command(app, script):
                     else [str(x) for x in script])
     script_path = str(script_parts[0])
     script_args = script_parts[1:]
-    template = declaration.get("runner")
-    legacy = template is None
-    template = template or declaration["interpreter"]
+    template = declaration["runner"]
     parts = []
     for token in template:
         text = str(token)
         if "{prefix}" in text:
             if not prefix:
                 raise RuntimeError_(
-                    f"{declaration_path(app)} in interpreter uses {{prefix}}, "
+                    f"{declaration_path(app)}: runner uses {{prefix}}, "
                     "but does not declare prefix field")
             text = text.replace("{prefix}", prefix)
         text = text.replace("{script}", script_path)
         parts.append(text)
-    if legacy:
-        parts.append(script_path)
     return parts + script_args
 
 
@@ -122,6 +112,6 @@ def document_extension(app):
     if not isinstance(extension, str) or not extension.startswith(".") \
             or os.path.basename(extension) != extension:
         raise RuntimeError_(
-            f"{declaration_path(app)} Missing valid document_extension, "
+            f"{declaration_path(app)} is missing a valid document_extension, "
             "for example '.svg' or '.odt'")
     return extension

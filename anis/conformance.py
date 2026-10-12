@@ -56,7 +56,7 @@ def c1_file_readable(census):
     return check
 
 
-def count_legacy_members(node, found=None, depth=0):
+def count_member_lists(node, found=None, depth=0):
     if found is None:
         found = {}
     if depth > 8:
@@ -67,10 +67,10 @@ def count_legacy_members(node, found=None, depth=0):
                     and isinstance(value, list):
                 found[key] = found.get(key, 0) + len(value)
             else:
-                count_legacy_members(value, found, depth + 1)
+                count_member_lists(value, found, depth + 1)
     elif isinstance(node, list):
         for item in node[:5000]:
-            count_legacy_members(item, found, depth + 1)
+            count_member_lists(item, found, depth + 1)
     return found
 
 
@@ -80,12 +80,12 @@ def c2_members_channel_present(census):
     members = channels.get("members")
 
     if members is None:
-        found = count_legacy_members(channels)
+        found = count_member_lists(channels)
         detail = ", ".join(f"{key} {value} items"
-                          for key, value in sorted(found.items())) or "Cannot find"
+                          for key, value in sorted(found.items())) or "no member lists"
         check.fail(
-            "Missing channels.members channel in this legacy census.\n"
-            f"      Legacy channels contain {detail}.\n"
+            "The census has no channels.members channel.\n"
+            f"      Existing channels contain {detail}.\n"
             "      Only counts or names were recorded, without signatures in individual\n"
             "      records; parameter and return types are unavailable,"
             " preventing command generation.\n"
@@ -195,9 +195,9 @@ def c4_recursion_depth(members, records):
 
     if observed < MIN_DEPTH:
         check.fail(
-            f"Expanded only {observed} levels. Nested members may require following"
-            "document, collection, table, row, and cell objects; shallow expansion misses"
-            "members such as setString .\n"
+            f"Expanded only {observed} levels. Nested members may require following "
+            "document, collection, table, row, and cell objects; shallow expansion misses "
+            "members such as setString.\n"
             "      Follow prompts/census_adapter.md in §E-2: returns.is_object "
             "true requires an actual object instance for further enumeration.")
 
@@ -208,7 +208,7 @@ def c4_recursion_depth(members, records):
         and record["returns"].get("is_object") is True]
     if not object_returning:
         check.fail(
-            "No record has returns.is_object set to true. Either the application"
+            "No record has returns.is_object set to true. Either the application "
             "has no object-returning members, or is_object is inaccurate; "
             "the latter prevents recursive expansion")
     else:
@@ -222,7 +222,7 @@ def c5_boundary_conserved(members, records):
     boundary = members.get("boundary")
     if boundary is None:
         check.fail(
-            "Missing channels.members.boundary. Object-returning members whose instances cannot be obtained"
+            "Missing channels.members.boundary. Object-returning members whose instances cannot be obtained "
             "must be listed here with reasons to account for unexpanded types")
         return check
     if not isinstance(boundary, list):
@@ -231,7 +231,7 @@ def c5_boundary_conserved(members, records):
 
     for index, item in enumerate(boundary[:200]):
         if not isinstance(item, dict) or not str(item.get("reason", "")).strip():
-            check.fail(f"Boundary entry {index} is missing reason. Each entry must explain"
+            check.fail(f"Boundary entry {index} is missing reason. Each entry must explain "
                        "why the object could not be obtained")
             break
 
@@ -254,7 +254,7 @@ def c5_boundary_conserved(members, records):
         check.fail(
             f"There are {len(unaccounted)} object types neither expanded nor recorded as boundaries; "
             f"for example {sorted(unaccounted)[:5]}.\n"
-            "      Required equality: expanded types + boundary entries = declared return"
+            "      Required equality: expanded types + boundary entries = declared return "
             "object types.\n"
             "      A mismatch indicates missing coverage needed for downstream generation.")
 
@@ -289,7 +289,7 @@ def c6_determinism(app, census):
             after = hashlib.sha256(handle.read()).hexdigest()
         if before != after:
             check.fail(
-                "Census outputs differ. Sort collections before output and"
+                "Census outputs differ. Sort collections before output and "
                 "omit timestamps, temporary paths, memory addresses, and unstable ordering")
         else:
             check.note(f"Outputs match; digest {before[:16]}")
@@ -332,8 +332,8 @@ def run(app, deep=False):
         print(f"{len(failed)}/{len(checks)} checks failed: ")
         for check in failed:
             print(f"  · {check.name}")
-        print("\nUse the diagnostics above as feedback for prompts/census_adapter.md generation,"
-              "so the model can repair the adapter. Preserve validation requirements"
+        print("\nUse the diagnostics above as feedback for prompts/census_adapter.md generation, "
+              "so the model can repair the adapter. Preserve validation requirements "
               "to ensure complete coverage.")
         return 1
     print(f"All {len(checks)} checks passed.")

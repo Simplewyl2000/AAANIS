@@ -89,7 +89,7 @@ def attested_symbols(app):
             continue
         if not str(entry.get("reason", "")).strip():
             raise SystemExit(
-                f"[verify] {app}: attested.json in {symbol!r} missing reason."
+                f"[verify] {app}: attested.json entry {symbol!r} is missing a reason. "
                 "Each attested capability must explain why automated census cannot cover it.")
         out[symbol] = entry
     return out
@@ -99,7 +99,7 @@ def gate_structure(cmd_dir, spec, app_dir):
     missing = [k for k in ("command", "summary", "args", "errors", "demo")
                if k not in spec]
     if missing:
-        return False, f"spec Missing field {missing}"
+        return False, f"spec is missing fields {missing}"
     for p in (_ROOT, app_dir):
         if p not in sys.path:
             sys.path.insert(0, p)
@@ -125,11 +125,11 @@ def gate_hallucination(spec, symbols):
 
 
     if ref["symbol"] in symbols.get("attested", set()):
-        return True, (f"{ref['symbol']} comes from the attestation list attested.json"
+        return True, (f"{ref['symbol']} comes from the attestation list attested.json "
                       f"(recorded channel {ref['channel']!r} no longer exists; "
                       "change census_ref.channel to \"attested\")")
 
-    return False, (f"{ref['symbol']} is not in census channel {ref['channel']}"
+    return False, (f"{ref['symbol']} is not in census channel {ref['channel']} "
                    f"({len(pool)} entries) or the attestation list")
 
 
@@ -157,7 +157,7 @@ def make_demo(app_dir, spec, demo):
         if code == 0:
             break
     if code != 0:
-        return False, f"make-demo Failed twice consecutively: {out.get('message')}"
+        return False, f"make-demo failed twice in a row: {out.get('message')}"
     return True, "Demo file created"
 
 
@@ -186,7 +186,7 @@ def check_verb(app, app_dir, spec, demo, run_report, before_digest=None,
 
     code, observed = cli(app_dir, ["observe", "--file", demo])
     if code != 0:
-        return False, f"observe Failed: {observed.get('message')}"
+        return False, f"observe failed: {observed.get('message')}"
     state = observed["state"]
     expect = spec["demo"]["expect"]
     if expect.get("content_changed"):
@@ -228,7 +228,7 @@ def external_state(app, app_dir, spec, demo, engine, contract):
         code, out = cli(
             app_dir, getter_argv(getter, spec, demo, contract))
         if code != 0:
-            raise RuntimeError(f"getter {getter} Failed: {out.get('message')}")
+            raise RuntimeError(f"getter {getter} failed: {out.get('message')}")
         return out.get("current")
     args = {"file": demo}
     args.update(spec["demo"]["args"])
@@ -261,7 +261,7 @@ def gate_recipe(app, app_dir, spec, tmp, engine, contract, adapter):
                                      encoding="utf-8"))
         code, out = cli(app_dir, command_argv(setter_spec, demo))
         if code != 0:
-            return False, f"paired setter Failed: {out.get('message')}", demo
+            return False, f"paired setter failed: {out.get('message')}", demo
         code, got = cli(app_dir, getter_argv(
             spec["command"], setter_spec, demo, contract))
         if code != 0 or not values_match(got.get("current"), spec["demo"]["expect"]):

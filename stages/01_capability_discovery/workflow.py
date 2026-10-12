@@ -39,7 +39,6 @@ RUNS_DIR = STAGE_DIR / "runs"
 TERMINAL_DISCOVERED = {
     "executable", "equivalent", "out_of_scope", "unsupported",
 }
-ITEM_ATTEMPT_LIMIT = 2
 TERMINAL_ITEM_STATES = {"accepted", "filtered", "unfinished"}
 
 
@@ -332,30 +331,6 @@ def verify_frozen_inputs(inputs):
             + ", ".join(problems))
 
 
-def adopt_current_controller(run_dir, inputs, reason):
-    """Record an explicit controller migration without changing app inputs."""
-    previous = {
-        "at": dt.datetime.now(dt.timezone.utc).isoformat(),
-        "reason": reason,
-        "config_sha256": inputs.get("config_sha256"),
-        "controller_files": inputs.get("controller_files", {}),
-    }
-    inputs.setdefault("controller_migrations", []).append(previous)
-    inputs["config_sha256"] = sha256(CONFIG_PATH)
-    global_path = Path(inputs.get(
-        "global_config", system_config.DEFAULT_CONFIG_PATH))
-    inputs["global_config"] = str(global_path)
-    inputs["global_config_sha256"] = sha256(global_path)
-    inputs["controller_files"] = {
-        str(path.relative_to(STAGE_DIR)): sha256(path)
-        for path in (
-            Path(__file__).resolve(), CONFIG_PATH,
-            STAGE_DIR / "AGENTS.md", REVIEW_PROMPT, REVIEW_SCHEMA,
-        )
-    }
-    atomic_json(run_dir / "inputs.json", inputs)
-
-
 def render_prompt(path, values):
     text = path.read_text(encoding="utf-8")
     for key, value in values.items():
@@ -560,21 +535,21 @@ def discovery_item_errors(batch, report, attempt_dir, max_attempts):
                     continue
                 if not parameter.get("value_kind"):
                     item_problems.append(
-                        f"Argument {parameter.get('name')} Missing machine-readable value_kind")
+                        f"Argument {parameter.get('name')} is missing a machine-readable value_kind")
                 if (parameter.get("value_kind") == "object_reference"
                         and not parameter.get("target_type")):
                     item_problems.append(
-                        f"object reference parameter {parameter.get('name')} Missing target_type")
+                        f"Object reference parameter {parameter.get('name')} is missing target_type")
             for candidate in item.get("command_candidates", []):
                 if not isinstance(candidate, dict):
                     item_problems.append("Command candidate is not an object")
                     continue
                 if not candidate.get("implementation_route"):
                     item_problems.append(
-                        f"Candidates {candidate.get('name')} Missing implementation_route")
+                        f"Candidate {candidate.get('name')} is missing implementation_route")
                 if not candidate.get("persistence_check"):
                     item_problems.append(
-                        f"Candidates {candidate.get('name')} Missing persistence_check")
+                        f"Candidate {candidate.get('name')} is missing persistence_check")
         if disposition == "equivalent" and not item.get(
                 "equivalent_commands"):
             item_problems.append("Missing equivalent command list")
@@ -638,84 +613,6 @@ def terminal_batch_status(item_states):
     if statuses <= TERMINAL_ITEM_STATES:
         return "completed_with_unfinished"
     return "needs_retry"
-
-
-def migrate_legacy_batch(run_dir, batch_state):
-    """Turn old all-or-nothing batch history into locked per-item history.
-
-    Every independently accepted item is preserved, even when another item in
-    the same legacy batch made the old controller reject the batch. Items
-    never accepted after at least two completed reviews become unfinished.
-    Incomplete/mechanical attempts without a review are retained on disk but
-    do not erase a previously accepted result.
-    """
-    if batch_state.get("items"):
-        return False
-    source_dir = run_dir / batch_state["path"]
-    batch = load_json(source_dir / "batch.json")
-    states = {
-        item["item_id"]: {
-            "status": "pending", "attempts": 0,
-            "accepted_attempt": "", "error": "",
-        }
-        for item in batch["items"]
-    }
-    reviewed = {item_id: 0 for item_id in states}
-    last_error = {item_id: "" for item_id in states}
-    for attempt_dir in sorted(source_dir.glob("attempt-*")):
-        result_path = attempt_dir / "discovery_result.json"
-        review_path = attempt_dir / "review_result.json"
-        if not (result_path.is_file() and review_path.is_file()):
-            continue
-        try:
-            report = load_json(result_path)
-            review = load_json(review_path)
-        except (json.JSONDecodeError, OSError):
-            continue
-        report_by_id = {
-            item.get("item_id"): item for item in report.get("items", [])}
-        review_by_id = {
-            item.get("item_id"): item for item in review.get("items", [])}
-        for item_id, state in states.items():
-            discovered = report_by_id.get(item_id)
-            verdict = review_by_id.get(item_id)
-            if discovered is None or verdict is None:
-                continue
-            reviewed[item_id] += 1
-            if (state["status"] != "accepted"
-                    and verdict.get("verdict") == "accept"
-                    and discovered.get("disposition") != "blocked"):
-                state.update({
-                    "status": "accepted",
-                    "attempts": min(reviewed[item_id], ITEM_ATTEMPT_LIMIT),
-                    "accepted_attempt": str(
-                        attempt_dir.relative_to(run_dir)),
-                    "error": "",
-                })
-            elif verdict.get("verdict") != "accept":
-                last_error[item_id] = verdict.get("reason", "Review failed")
-            elif discovered.get("disposition") == "blocked":
-                last_error[item_id] = discovered.get(
-                    "reason", "Cannot complete in the current environment")
-    for item_id, state in states.items():
-        if state["status"] == "accepted":
-            continue
-        state["attempts"] = min(reviewed[item_id], ITEM_ATTEMPT_LIMIT)
-        state["error"] = last_error[item_id] or batch_state.get(
-            "error", "Independent review pending")
-        if state["attempts"] >= ITEM_ATTEMPT_LIMIT:
-            state["status"] = "unfinished"
-    batch_state["items"] = states
-    batch_state["status"] = terminal_batch_status(states)
-    batch_state["error"] = ""
-    return True
-
-
-def migrate_legacy_state(run_dir, state):
-    changed = False
-    for batch_state in state["batches"]:
-        changed = migrate_legacy_batch(run_dir, batch_state) or changed
-    return changed
 
 
 def investigate_batch(run_dir, batch_state, args, config, global_config,
@@ -807,12 +704,6 @@ def save_state(run_dir, state):
 
 def run_pending(run_dir, args):
     run_dir, inputs, state = load_run(run_dir)
-    migrated = migrate_legacy_state(run_dir, state)
-    if migrated:
-        adopt_current_controller(
-            run_dir, inputs,
-            "Migrate batch validation to per-item acceptance; at most two attempts per item")
-        save_state(run_dir, state)
     verify_frozen_inputs(inputs)
     config = load_config()
     global_config = system_config.load(args.config or inputs.get("global_config"))

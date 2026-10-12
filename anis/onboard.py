@@ -173,11 +173,9 @@ def check_runtime_declaration(app):
     binary = command[0]
     if not (os.path.isabs(binary) and os.path.isfile(binary)) \
             and not shutil.which(binary):
-        return False, (f"runtime.json Declared interpreter {binary!r} on this machine"
-                       "was not found. Verify that it runs before declaring it.")
-    declaration = runtime.load(app)
-    kind = "generic Collector command" if declaration.get("runner") else "legacy interpreter declaration"
-    return True, f"{kind}available: {' '.join(command)}"
+        return False, (f"The runner {binary!r} declared in runtime.json was not found "
+                       "on this machine. Verify that it runs before declaring it.")
+    return True, f"Collector runner available: {' '.join(command)}"
 
 
 def check_file_exists(app, relative, what):
@@ -205,10 +203,10 @@ def check_app_adapter(app):
     probe = os.path.join(app_dir(app), "atlas_gen.py")
     atlas_ok, _ = check_atlas_not_empty(app)
     if not os.path.isfile(probe) and not atlas_ok:
-        return False, ("Neither atlas_gen.pynor existing command definitions were found; "
+        return False, ("Neither atlas_gen.py nor existing command definitions were found; "
                        "the adapter must provide a source of command candidates")
     source = "atlas_gen.py" if os.path.isfile(probe) else "existing atlas command definitions"
-    return True, f"engine.py, anis-app.json and{source}is ready and the contract is valid"
+    return True, f"engine.py, anis-app.json and {source} are ready and the contract is valid"
 
 
 def run_atlas_probe(app):
@@ -424,7 +422,7 @@ def check_backlog_investigated(app):
     if not remaining:
         return True, f"Candidate names {len(backlog)} all have semantic filtering decisions"
     sample = ", ".join(sorted(remaining)[:6])
-    return False, (f"Pending {len(backlog)} items include {len(remaining)} items without"
+    return False, (f"Pending {len(backlog)} items include {len(remaining)} items without "
                    f"filtering decisions; for example: {sample}")
 
 
@@ -533,7 +531,6 @@ def stages(app, launch, min_pass_rate, config, run_id=None):
             "owner": "Script",
             "check": lambda: check_conformance(app),
             "on_fail_redo": "2-Write census collector",
-            "legacy_ok": True,
         },
         {
             "name": "5-Write engine and probe",
@@ -564,8 +561,7 @@ def stages(app, launch, min_pass_rate, config, run_id=None):
             "run": lambda: run_discovery(app, config, run_id),
             "basis": "stages/01 prompts with batching and retries",
             "check": lambda: check_backlog_investigated(app),
-            "legacy_ok": True,
-            "what": "Classify candidates by user value as expose or skipwithout running the application",
+            "what": "Classify candidates by user value as expose or skip without running the application",
         },
         {
             "name": "9-Implement commands",
@@ -574,7 +570,6 @@ def stages(app, launch, min_pass_rate, config, run_id=None):
             "basis": "stages/02_05/implement_batch.md",
             "check": lambda: check_accepted_implemented(app, run_id),
             "recheck_on_resume": True,
-            "legacy_ok": True,
             "what": "Implement approved capabilities as command definitions and engine code",
         },
         {
@@ -661,22 +656,10 @@ def workflow_stages(app, launch, min_pass_rate, config, run_id=None):
     ]
 
 
-def run_stage(stage, app, launch, max_attempts, config,
-              force=False, allow_legacy=False):
+def run_stage(stage, app, launch, max_attempts, config, force=False):
 
     name = stage["name"]
     feedback = stage.pop("_feedback", "")
-
-    if stage.get("legacy_ok") and allow_legacy:
-        passed, detail = stage["check"]()
-        if not passed:
-            log(f"── {name} failed; allowed by --allow-legacy ."
-                "Legacy adapter gaps follow; published files will be preserved: ")
-            for line in detail.splitlines():
-                if line.strip():
-                    log("     " + line)
-            return True, "Accepted legacy format; gaps recorded above"
-        return True, detail
 
     if not force and not feedback:
         passed, detail = stage["check"]()
@@ -723,7 +706,7 @@ def run_stage(stage, app, launch, max_attempts, config,
 
 def onboard(app, launch, only=None, max_attempts=DEFAULT_MAX_ATTEMPTS,
             min_pass_rate=1.0, redo_limit=2, force=False,
-            allow_legacy=False, config=None, state=None):
+            config=None, state=None):
     global ACTIVE_CONFIG
     config = config or system_config.load()
     ACTIVE_CONFIG = config
@@ -775,8 +758,7 @@ def onboard(app, launch, only=None, max_attempts=DEFAULT_MAX_ATTEMPTS,
                 continue
 
         passed, detail = run_stage(stage, app, launch, max_attempts, config,
-                                   force=force or name in state.get("rerun_steps", []),
-                                   allow_legacy=allow_legacy)
+                                   force=force or name in state.get("rerun_steps", []))
         state["history"].append({
             "phase": phase_by_step[name], "stage": name,
             "owner": stage["owner"], "passed": passed,
@@ -795,8 +777,8 @@ def onboard(app, launch, only=None, max_attempts=DEFAULT_MAX_ATTEMPTS,
         redo_target = stage.get("on_fail_redo")
         if redo_target and redo_used.get(redo_target, 0) < redo_limit:
             redo_used[redo_target] = redo_used.get(redo_target, 0) + 1
-            log(f"   Returning to '{redo_target}' for retry"
-                f"(attempt {redo_used[redo_target]}/{redo_limit} ), "
+            log(f"   Returning to '{redo_target}' for retry "
+                f"(attempt {redo_used[redo_target]}/{redo_limit}), "
                 "including validation feedback")
             if redo_target in state["done"]:
                 state["done"].remove(redo_target)
@@ -810,7 +792,7 @@ def onboard(app, launch, only=None, max_attempts=DEFAULT_MAX_ATTEMPTS,
     if only:
         log(f"Selected step completed: {only}. This does not imply that later steps or the CLI are complete.")
     else:
-        log(f"Completed.CLI at dist/{app}-anis/; launcher bin/{app}-anis")
+        log(f"Completed. CLI at dist/{app}-anis/; launcher bin/{app}-anis")
     return state
 
 
@@ -829,19 +811,12 @@ def main():
     resume.add_argument(
         "--no-resume", dest="resume", action="store_false",
         help="Archive previous progress and restart with a new run ID")
-    resume.add_argument(
-        "--redo", dest="resume", action="store_false",
-        help="--no-resume compatibility alias")
     parser.add_argument("--max-attempts", type=int,
                         help="Maximum attempts per step")
     parser.add_argument("--min-pass-rate", type=float,
                         help="Required verification pass rate; default: 100%%")
     parser.add_argument("--plan", action="store_true",
                         help="Print workflow steps and owners without executing")
-    parser.add_argument("--allow-legacy", action="store_true",
-                        help="Report census gaps without model repair."
-                             "For legacy adapters with published commands; "
-                             "not intended for new applications.")
     parser.add_argument(
         "--config", help="ANIS Global configuration; defaults to the root anis-config.json")
     parser.add_argument("--redo-limit", type=int,
@@ -868,8 +843,8 @@ def main():
                 basis = (stage.get("prompt") or stage.get("basis")
                          or "Deterministic script")
                 print(f"{stage['name']:<46}{stage['owner']:<10}{basis}")
-        print("\nScripts validate model outputs. Failed validation "
-              "is returned to the model as repair feedback.")
+        print("\nScripts validate model outputs. Validation failures are "
+              "returned to the model as repair feedback.")
         return 0
 
     if options.resume:
@@ -884,7 +859,6 @@ def main():
                 max_attempts=max_attempts,
                 min_pass_rate=min_pass_rate, redo_limit=redo_limit,
                 force=not options.resume,
-                allow_legacy=options.allow_legacy,
                 config=config, state=state)
     except StageFailed as error:
         print(f"\nWorkflow stopped at {error.stage}\n\n{error.detail}\n", file=sys.stderr)
@@ -892,7 +866,7 @@ def main():
             print("Progress saved. After repair, rerun the same command to resume this step.",
                   file=sys.stderr)
         else:
-            print("Progress saved. After repair, use --resumeto resume this step.",
+            print("Progress saved. After repair, rerun with --resume to resume this step.",
                   file=sys.stderr)
         return 1
     except runtime.RuntimeError_ as error:

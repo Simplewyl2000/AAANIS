@@ -122,7 +122,7 @@ def load_impl(cmd_dir):
     mod = importlib.util.module_from_spec(mod_spec)
     mod_spec.loader.exec_module(mod)
     if not callable(getattr(mod, "run", None)):
-        raise RuntimeError("impl.py Missing run(); kernel refused to register the command")
+        raise RuntimeError("impl.py does not define run(); the kernel refused to register the command")
     return mod
 
 

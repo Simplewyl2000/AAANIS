@@ -191,7 +191,7 @@ def main():
     for warning in warnings:
         print(f"[freeze] Warning: {warning}")
     if failed:
-        print(f"[freeze] Failed verification {len(failed)} commands (excluded from dist): {failed}")
+        print(f"[freeze] {len(failed)} commands failed verification and were excluded from dist: {failed}")
     print(f"[freeze] Launcher: {launcher}")
 
 

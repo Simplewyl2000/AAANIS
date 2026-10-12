@@ -71,9 +71,6 @@ Write `apps/{app}/runtime.json`:
 - `document_extension` determines the verifier's demo file extension.
 - `entrypoints` records verified interfaces available to the collector.
 
-Use `runner` for new applications. Existing `interpreter` declarations remain
-supported for compatibility.
-
 ## Validation
 
 ```bash

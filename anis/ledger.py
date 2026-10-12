@@ -76,12 +76,6 @@ def census_records(census):
     return records
 
 
-def census_items(app, census):
-    """Compatibility view; ``app`` is intentionally ignored."""
-    del app
-    return [(row["channel"], row["symbol"]) for row in census_records(census)]
-
-
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--app", required=True)

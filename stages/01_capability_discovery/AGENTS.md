@@ -1,10 +1,10 @@
-# Stage 1 Codex rules
+# Stage 1 agent rules
 
 This directory is an evidence-producing capability-discovery workspace.
 
 - Work only on item IDs present in the assigned `batch.json`.
-- Do not edit files under `ANIS/apps`, `ANIS/anis`, `ANIS/dist`, or existing
-  capability ledgers.
+- Do not edit files under the repository's `apps/`, `anis/`, or `dist/`
+  directories, or existing capability ledgers.
 - Put temporary probes and evidence only inside the current batch directory.
 - Do not read a whole large build report or log. Use the current `symbol`,
   command names, and `item_id` with `rg` or `jq` to extract only relevant

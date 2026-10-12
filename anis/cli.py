@@ -112,7 +112,7 @@ def _parse(argv):
         else:
             if i + 1 >= len(argv):
                 kernel.emit({"status": "error", "code": "INVALID_ARGS",
-                             "message": f"--{name} Missing value", "fix": "Argument syntax: --name value"},
+                             "message": f"--{name} is missing a value", "fix": "Argument syntax: --name value"},
                             kernel.EXIT_BAD_ARGS)
             kv[name] = argv[i + 1]
             i += 2
